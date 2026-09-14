@@ -1,19 +1,34 @@
-# Event Spark 2 — Master Project Architecture Document (PAD) v1.0.0
+# Event Spark 2 — Master Project Architecture Document (PAD) v1.1.1
 
 **Classification:** Internal Engineering Reference
 **Status:** DEFINITIVE, PRODUCTION-LOCKED BLUEPRINT
-**Companion Documents:** [README.md](./README.md) (product overview) · [AGENTS.md](./AGENTS.md) (agent shortcuts) · [CLAUDE.md](./CLAUDE.md) (agent workflow)
+**Companion Documents:** [README.md](./README.md) (product overview) · [AGENTS.md](./AGENTS.md) (agent shortcuts) · [CLAUDE.md](./CLAUDE.md) (agent workflow) · [docs/REMEDIATION_PLAN.md](./docs/REMEDIATION_PLAN.md) (round-1 audit + fixes) · [docs/SECURITY_AUDIT.md](./docs/SECURITY_AUDIT.md) (layered code review + security audit)
 **Last Updated:** 2026-09-14
 **Audience:** Senior Engineers, Tech Leads, DevOps, and Onboarding Engineers
 **Rule:** Every architectural decision in this document traces to a specific rationale. Nothing is here "because it's popular."
 
 ---
 
+#### Revision Block — v1.1.1 (Security-Audit Release)
+
+- `[SR]` Layered code review + security audit executed (methodology: foundation skills `code-review-and-audit`, `security-and-hardening`, `code-review-checklist`, `verification-and-review-protocol`); full report with evidence in `docs/SECURITY_AUDIT.md`.
+- `[SR]` Contract conformance verified: every behavioral claim in AGENTS/CLAUDE/README/PAD checked against code — PASS. Zero application-logic defects found.
+- `[SR]` Supply-chain remediation: `next` 16.1.3 → **16.3.5** (clears 34 advisories incl. two unauthenticated-RCE criticals, GHSA-p293-qw3h-jr36 / GHSA-2xp9-vwfh-vxw4); `sharp` overridden to 0.35.4 and `postcss` to 8.5.28 via `package.json` `overrides` (clears the high advisories). Residual: 8 dev/lint-time-only advisories, documented in the audit's residual-risk register.
+- `[SR]` Baseline security headers added at the app level (`X-Content-Type-Options`, `X-Frame-Options: DENY`, `Referrer-Policy`, `Permissions-Policy`); CSP intentionally deferred to the edge (inline-style constraint documented).
+- `[SR]` §7.3c ledger records the Round 2 closing gates (all green on Next 16.3.5).
+
+#### Revision Block — v1.1.0 (Remediation Release)
+
+- `[SR]` Post-deployment E2E + visual-parity audit executed (findings F-01…F-14 in `docs/REMEDIATION_PLAN.md`); P1/P2 findings remediated and re-verified (§7.3b).
+- `[SR]` User-facing CTAs converted to real hash anchors (ADR-007); auth failures now carried by a typed `AuthServiceError` (ADR-008); Vitest wired with two unit suites (21 tests).
+- `[SR]` Scaffold surface pruned: 46 unused shadcn/ui components and ~37 unused dependencies removed (14 runtime deps remain); `allowedDevOrigins` added for the sandbox preview host.
+- `[SR]` §3.3 Pattern 1 code snippet corrected to match the shipped `parseHash` (exact `/auth` match; auth subpaths intentionally 404 — reference parity).
+
 #### Revision Block — v1.0.0 (Initial Release)
 
 - `[SR]` Initial PAD generated from the shipped v1.0.0 codebase (commit `0fa109b`), grounded in the measured-clone build methodology.
 - `[SR]` Design-token values in §5 are transcriptions of computed styles read from the live reference site, not designer guesses.
-- `[SR]` Verification ledger (§8.5) records the exact gates executed before this document was written.
+- `[SR]` Verification ledger (§7.3) records the exact gates executed before this document was written.
 
 ---
 
@@ -44,19 +59,20 @@ This PAD is the single source of truth for the Event Spark 2 engineering referen
 
 | Layer | Technology | Version | Key Rationale |
 | --- | --- | --- | --- |
-| Web framework | Next.js (App Router) | 16.1 | Matches the foundation's stack and the sandbox contract; standalone output for container deploys |
+| Web framework | Next.js (App Router) | 16.3.5 | Matches the foundation's stack and the sandbox contract; standalone output for container deploys; version pinned above the 16.3.3 security floor (see §6.4) |
 | UI runtime | React | 19 | Required by Next 16; concurrent features power the animation layer |
 | Language | TypeScript (strict) | 5 | Compile-time contract enforcement across the typed content and service layers |
 | Styling | Tailwind CSS | 4 (via `@tailwindcss/postcss`) | CSS-first `@theme` tokens match the foundation's convention and keep the design system in one file |
-| UI primitives | shadcn/ui on Radix | scaffold set | Accessible tabs/toaster/forms without hand-rolled ARIA |
+| UI primitives | shadcn/ui on Radix | 3 components in use | Accessible tabs/toaster without hand-rolled ARIA; scaffold pruned to what ships |
 | Animation | framer-motion | 12.23.2 | Declarative scroll reveals and presence-based word rotation |
 | Smooth scroll | lenis | 1.3.26 | The reference site's actual scroll engine; `autoRaf` mode |
 | Forms | react-hook-form + @hookform/resolvers + zod | 7.60 / 5.1 / 4.0 | Typed schema validation with per-field error surfacing |
+| Unit testing | Vitest | 5.0 | `parseHash` + demo auth adapter contract suites (21 tests) |
 | Icons | lucide-react | 0.525 | Same icon family as the reference (stars, arrows, puzzle) |
 | Notifications | shadcn toaster (Radix toast) | scaffold | Toast contract used by the auth flows |
 | Runtime / PM | Bun | ≥ 1.1 | Fast installs, native dev-server runner for this workspace |
 
-No database, no HTTP API layer, no background workers in v1.0.0 — §4 and §7 of the canonical PAD structure are intentionally reduced to their applicable cores.
+No database, no HTTP API layer, no background workers in v1.1.0 — §4 and §7 of the canonical PAD structure are intentionally reduced to their applicable cores.
 
 ### 1.3 Architecture Decision Records
 
@@ -107,6 +123,22 @@ No database, no HTTP API layer, no background workers in v1.0.0 — §4 and §7 
 - **Rationale:** Fixed-crop marketing imagery gains nothing from `next/image` optimization here, and the reference renders them identically; local files keep the repo self-contained and deployable offline.
 - **Consequences:** + No remote dependency. − LCP optimization for photos is a conscious non-goal (page is marketing-light).
 - **Alternatives Rejected:** `next/image` with remote loaders (config churn, no visual gain); hotlinking the reference CDN (fragile).
+
+**ADR-007: User-facing CTAs are real hash anchors, not `onClick` buttons**
+
+- **Context:** The v1.0.0 build rendered all six product CTAs as `<button onClick={navigate}>`. The reference site uses real `<a href>` links; an audit of the deployed clone (finding F-06) showed the landing page carried 0–1 `<a>` elements vs the reference's 6+ product links — breaking middle-click, copy-link, and crawler discovery, and violating the documented a11y floor.
+- **Decision:** Every user-facing CTA is an `<a href="#/…">` anchor (navbar Log in / Sign up, hero Get started, Browse all events, final CTA, 404 Return to Home). The hash router already syncs on `hashchange`, so anchors integrate with zero extra wiring. Programmatic navigation (the post-auth redirect) keeps using the `onNavigate` callback.
+- **Rationale:** Anchors restore native link semantics (crawlable, keyboard-focusable, middle-clickable) at zero behavioral cost; the 404 home link targets the real path `/` so it works from both the hash-router 404 and the server-rendered 404.
+- **Consequences:** + Reference link parity, better SEO/a11y. − Browser automation must select `a[href^="#/"]` instead of `role=button` (documented in AGENTS.md Gotchas); the E2E suite was updated accordingly.
+- **Alternatives Rejected:** Keeping buttons + adding `role="link"` (cosmetic, still not a link); path-based routes (violates single-route contract).
+
+**ADR-008: Typed auth failure carrier (`AuthServiceError`) + Vitest wiring**
+
+- **Context:** v1.0.0 defined an `AuthError` union in `types.ts` but never used it — `demoAuthService.signUp` threw a bare `Error("weak-password")` and `auth-view.tsx` string-matched `error.message` (finding F-09). No unit runner existed despite the PAD's open task (finding F-08).
+- **Decision:** (a) Adapters throw `AuthServiceError extends Error` carrying `code: AuthError`; UI branches on `error instanceof AuthServiceError && error.code`, mapping codes to their documented copy. (b) Vitest 5 wired with node environment and the `@` alias; two suites cover `parseHash` (11 tests) and the demo adapter (10 tests, including the typed failure path and ~900ms latency bound).
+- **Rationale:** The stringly-typed contract was exactly the bug class the types file existed to prevent; unit tests make the routing and auth seams regression-safe before any future refactor (TDD baseline for the audit round).
+- **Consequences:** + Exhaustive, compiler-checked error handling; fast deterministic gates. − Test suite adds ~9s of wall time to the gate chain (simulated latency assertions).
+- **Alternatives Rejected:** String-enum constants without a class (no `instanceof` narrowing); Playwright in-repo (sandbox-hostile, heavier than the seam needs).
 
 ---
 
@@ -167,39 +199,46 @@ Layer 4: Primitives            — shadcn/ui components + shared (Logo, SmoothSc
 src/
 ├── app/
 │   ├── layout.tsx            ← fonts (Bricolage, DM Sans), metadata, Toaster mount
-│   ├── page.tsx              ← SPA shell: useHashRoute + view switch + scroll reset
+│   ├── page.tsx              ← SPA shell: MotionConfig + useHashRoute + view switch + scroll reset
 │   ├── not-found.tsx         ← server 404 → renders shared NotFoundView
-│   └── globals.css           ← @theme inline tokens, :root HSL vars, drift keyframes
+│   ├── globals.css           ← @theme inline tokens, :root HSL vars, drift keyframes
+│   └── api/route.ts          ← static greeting (kept from scaffold; harmless, documented)
 ├── components/
 │   ├── landing/
-│   │   ├── navbar.tsx        ← fixed 72px rail; hidden until first scroll intent
-│   │   ├── hero.tsx          ← confetti layer + min-h-[620px] centered stack + RotatingWord
-│   │   ├── popular-events.tsx← bg-muted/40 band; header + browse link + 4 EventCards
-│   │   ├── event-card.tsx    ← aspect-[4/5] tile: gradient scrim, price badge, pink date
+│   │   ├── navbar.tsx        ← fixed 72px rail; hidden until first scroll intent; anchor CTAs
+│   │   ├── hero.tsx          ← confetti layer + min-h-[620px] centered stack + RotatingWord; bold H1; h-14 CTA
+│   │   ├── popular-events.tsx← bg-muted/40 band; header + anchor browse link + 4 EventCards
+│   │   ├── event-card.tsx    ← aspect-[4/5] tile: gradient scrim, price badge, pink date; bold title
 │   │   ├── features.tsx      ← 4 feature cards (dark/primary-tint/muted/pink) + blur glows
 │   │   ├── feature-mocks.tsx ← miniature UI mocks: event page, live chart, orbit, avatars
 │   │   ├── testimonials.tsx  ← 5 quote cards, 180px portrait, pink stars
-│   │   ├── final-cta.tsx     ← dark rounded-[2.5rem] panel + ticket SVG + pink CTA
+│   │   ├── final-cta.tsx     ← dark rounded-[2.5rem] panel + ticket SVG + pink anchor CTA
 │   │   ├── footer.tsx        ← logo + copyright
 │   │   └── scroll-reveal.tsx ← framer-motion whileInView fade-up wrapper
 │   ├── auth/
-│   │   └── auth-view.tsx     ← tabs, RHF+zod forms, reset flow, Google button, toasts
-│   └── shared/
-│       ├── logo.tsx          ← glyph + wordmark lockup (nav/hero/auth/footer)
-│       ├── smooth-scroll.tsx ← Lenis provider, reduced-motion gated
-│       └── not-found-view.tsx← centered 404 used by hash router AND not-found.tsx
+│   │   └── auth-view.tsx     ← tabs, RHF+zod forms, reset flow, Google button, toasts, data-testids
+│   ├── shared/
+│   │   ├── logo.tsx          ← glyph + wordmark lockup (nav/hero/auth/footer)
+│   │   ├── smooth-scroll.tsx ← Lenis provider, reduced-motion gated
+│   │   └── not-found-view.tsx← reference-spec 404: muted band, bold 36px, pink underlined anchor home link
+│   └── ui/
+│       ├── tabs.tsx          ← Radix tabs (auth switcher)
+│       ├── toast.tsx         ← toast primitive (scaffold, in use)
+│       └── toaster.tsx       ← toast viewport (scaffold, in use)
 ├── data/
 │   ├── events.ts             ← FeaturedEvent[], CategoryCard[], rotating words
 │   ├── testimonials.ts       ← Testimonial[]
 │   └── integrations.ts       ← integration logos, audience avatars
 ├── hooks/
-│   ├── use-hash-route.ts     ← parseHash() + navigate() + history sync
+│   ├── use-hash-route.ts     ← parseHash() + navigate() + history sync (parseHash unit-tested)
+│   ├── use-hash-route.test.ts← parseHash contract suite (11 tests)
 │   └── use-toast.ts          ← shadcn toast hook (scaffold)
 └── lib/
     ├── utils.ts              ← cn() (scaffold)
     └── auth/
-        ├── types.ts          ← AuthService interface + input/result types
-        ├── demo-auth-service.ts ← deterministic simulated adapter
+        ├── types.ts          ← AuthService interface + AuthError union + AuthServiceError carrier
+        ├── demo-auth-service.ts ← deterministic simulated adapter (typed failures)
+        ├── demo-auth-service.test.ts ← adapter contract suite (10 tests)
         └── index.ts          ← composition root (swap point for real backend)
 ```
 
@@ -214,14 +253,16 @@ export type AppRoute =
   | { view: "auth"; mode: "login" | "signup" }
   | { view: "not-found" };
 
-function parseHash(hash: string): AppRoute {
+export function parseHash(hash: string): AppRoute {
   const raw = hash.startsWith("#") ? hash.slice(1) : hash;
   const path = raw.split("?")[0] ?? "";
   const query = raw.split("?")[1] ?? "";
 
   if (path === "" || path === "/") return { view: "home" };
-  if (path === "/auth" || path.startsWith("#/auth/")) {
+  if (path === "/auth") {
     // `?mode=signup` selects the signup tab; login is the default.
+    // Auth subpaths (`#/auth/…`) intentionally fall through to 404 —
+    // the reference behaves the same way (verified against the live site).
     const mode = query.includes("mode=signup") ? "signup" : "login";
     return { view: "auth", mode };
   }
@@ -229,7 +270,7 @@ function parseHash(hash: string): AppRoute {
 }
 ```
 
-*Why this pattern:* a discriminated union makes the shell's render exhaustive (TypeScript errors if a view is added to the union but not the switch), and a single parser means `#/auth?mode=signup` links work from anywhere — footer, docs, emails — without prop drilling.
+*Why this pattern:* a discriminated union makes the shell's render exhaustive (TypeScript errors if a view is added to the union but not the switch), and a single parser means `#/auth?mode=signup` links work from anywhere — footer, docs, emails — without prop drilling. `parseHash` is exported purely for its unit suite (11 tests pin the exact contract, including the subpath-404 and `#/author` lookalike cases).
 
 **Pattern 2 — Navigation by callback contract**
 
@@ -242,27 +283,41 @@ export default function Page() {
   }, [route.view]);
 
   return (
-    <SmoothScroll>
-      {route.view === "home" && <LandingPage onNavigate={navigate} />}
-      {route.view === "auth" && <AuthView initialMode={route.mode} onNavigate={navigate} />}
-      {route.view === "not-found" && <NotFoundView onNavigate={navigate} />}
-    </SmoothScroll>
+    <MotionConfig reducedMotion="user">
+      <SmoothScroll>
+        {route.view === "home" && <LandingPage />}
+        {route.view === "auth" && (
+          <AuthView initialMode={route.mode} onNavigate={navigate} />
+        )}
+        {route.view === "not-found" && <NotFoundView />}
+      </SmoothScroll>
+    </MotionConfig>
   );
 }
 ```
 
-*Why this pattern:* sections stay router-agnostic (easy to lift into real routes later), and the `behavior: "instant"` cast bypasses Lenis's animation so view switches don't fight smooth scroll.
+*Why this pattern:* sections stay router-agnostic (user CTAs are plain `#/…` anchors; the post-auth redirect uses `onNavigate`), `MotionConfig reducedMotion="user"` gates every framer animation on `prefers-reduced-motion` in one place, and the `behavior: "instant"` cast bypasses Lenis's animation so view switches don't fight smooth scroll.
 
-**Pattern 3 — The auth seam**
+**Pattern 3 — The auth seam (typed failures)**
 
 ```typescript
 // src/lib/auth/index.ts — the ONLY file that changes when a backend lands
 import type { AuthService } from "./types";
 import { demoAuthService } from "./demo-auth-service";
 export const authService: AuthService = demoAuthService;
+
+// src/lib/auth/types.ts — the failure carrier
+export class AuthServiceError extends Error {
+  readonly code: AuthError; // "invalid-credentials" | "email-already-registered" | "weak-password" | "network"
+  constructor(code: AuthError, message?: string) {
+    super(message ?? code);
+    this.name = "AuthServiceError";
+    this.code = code;
+  }
+}
 ```
 
-*Why this pattern:* UI code imports `authService` and the `AuthService` type only. The demo adapter's contract (latency, deterministic failures) is what the UI's loading/error states are tested against; a Supabase adapter is a sibling file plus a one-line binding change, reviewed in isolation.
+*Why this pattern:* UI code imports `authService` and the `AuthService` type only, and branches on `error instanceof AuthServiceError && error.code` — never message strings. The demo adapter's contract (latency, deterministic failures) is what the UI's loading/error states are tested against; a Supabase adapter is a sibling file plus a one-line binding change, reviewed in isolation.
 
 **Pattern 4 — Measured motion (ScrollReveal)**
 
@@ -329,6 +384,7 @@ shadcn/ui (New York, scaffold set) provides `Tabs` (auth switcher), `Toaster`/`u
 
 | Name | Mechanism | Spec |
 | --- | --- | --- |
+| Reduced-motion gate | `MotionConfig reducedMotion="user"` in the shell | All framer choreography honors `prefers-reduced-motion: reduce` |
 | Scroll reveal | `ScrollReveal` → framer `whileInView` | opacity 0→1, y 24→0, 0.6s, `once: true`, margin −80px, 0.06–0.1s stagger |
 | H1 word rotation | `AnimatePresence mode="wait"` + 2.6s interval | y ±60%, opacity crossfade, 0.45s |
 | Navbar reveal | scroll-intent listeners (wheel/touch/scroll) | tucked `-translate-y-[100px]` until first intent, then visible; 300ms ease-out |
@@ -338,7 +394,7 @@ shadcn/ui (New York, scaffold set) provides `Tabs` (auth switcher), `Toaster`/`u
 | Card hover | Tailwind `group-hover` | image `scale-105` 700ms; title→primary; CTA lift + `shadow-float` |
 | Smooth scroll | Lenis `autoRaf`, lerp 0.1 | disabled under `prefers-reduced-motion: reduce` |
 
-All scroll-driven motion respects the reduced-motion guard at the provider level (`SmoothScroll`) or plays once.
+All motion is reduced-motion safe: Lenis at the provider level (`SmoothScroll`), framer at the config level (`MotionConfig`), and scroll reveals fire once only.
 
 ---
 
@@ -351,6 +407,8 @@ All scroll-driven motion respects the reduced-motion guard at the provider level
 | No secrets in the repo | `.ssh/`, `scripts/`, workspace dirs gitignored; the deploy key lives outside the tree and is never committed (verified by staged-file audit before push) |
 | Validate all external input | Auth forms: zod schemas at the boundary (email format, password composition); parse failures surface as field-level alerts |
 | No injection surface | No `dangerouslySetInnerHTML` anywhere; content modules are developer-authored literals, not user input |
+| Baseline response headers | `next.config.ts` `headers()`: `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy` (camera/mic/geo denied). CSP deferred to the edge (documented) |
+| Dependency hygiene | `next` pinned ≥ the 16.3.3 security floor; `sharp`/`postcss` pinned via `package.json` `overrides` to patched majors; audit trail in `docs/SECURITY_AUDIT.md` |
 | Least data | The app collects nothing persistently; auth is simulated and stateless |
 | Accessible failure states | `role="alert"` on field errors; toasts announce outcomes; buttons disable during async |
 
@@ -364,12 +422,15 @@ v1.0.0 ships the **demo adapter**: sign-in accepts well-formed credentials (stat
 
 ### 6.4 Threat Model
 
-| Vector | v1.0.0 posture |
+Audited 2026-09-14 (full report: `docs/SECURITY_AUDIT.md` — severity-graded findings with evidence and the executed fix backlog).
+
+| Vector | v1.1.1 posture |
 | --- | --- |
-| XSS | No user-generated content is rendered; no raw HTML injection points |
-| Clickjacing/overlay | Pure content site; no frames policy needed yet (add CSP/frame-ancestors at the edge when deployed) |
+| XSS | No user-generated content is rendered; no raw HTML injection points; no `dangerouslySetInnerHTML` anywhere in `src/` |
+| Clickjacking/overlay | `X-Frame-Options: DENY` on all responses (app level); CSP/frame-ancestors remains an edge-level task |
+| Supply chain (framework) | `next@16.3.5` — above the 16.3.3 floor that fixes two unauthenticated-RCE criticals and the 16.2.x DoS/SSRF/cache-poisoning/middleware-bypass tail (34 advisories cleared) |
+| Supply chain (transitive) | `sharp@0.35.4` + `postcss@8.5.28` enforced via `overrides` (high advisories cleared); residual 8 advisories are dev/lint-time-only (eslint/babel chain, not shipped in the standalone artifact) — accepted and registered |
 | Credential stuffing | N/A until real auth exists; demo adapter has no network surface |
-| Dependency risk | 63 runtime deps, all mainstream and current at build time; pruned scaffold cruft (Prisma, next-auth, z-ai SDK) to shrink the surface |
 
 ---
 
@@ -380,16 +441,19 @@ v1.0.0 ships the **demo adapter**: sign-in accepts well-formed credentials (stat
 | Category | Count | Location | Framework |
 | --- | --- | --- | --- |
 | Static gates | 2 | `bun run lint`, `bun run typecheck` | ESLint 9 (next/core-web-vitals + TS), tsc 5 strict |
-| Browser E2E (scripted manual) | ~14 checks | build-time verification ledger (§7.3) | agent-browser (Playwright-class headless) |
-| Unit tests | 0 | — | none wired yet (§10) |
+| Unit tests | 21 | `src/hooks/use-hash-route.test.ts` (11), `src/lib/auth/demo-auth-service.test.ts` (10) | Vitest 5 (node env, `@` alias) |
+| Browser E2E (live site) | 38 checks | workspace script `scripts/e2e_live_tests.sh` (gitignored) | agent-browser (Playwright-class headless) |
+| Computed-style parity | 6 assertion groups | workspace script `scripts/parity_check.sh` (gitignored) | agent-browser vs `event-spark-2.lovable.app` |
 
 ### 7.2 Test Patterns
 
-- **Gates before claims:** no "it works" statement without a lint/typecheck/browser observation behind it.
-- **Interaction sweep:** every CTA, tab, form validation, reset flow, 404 path, and back-navigation exercised in the headless browser; console error budget = zero.
+- **Gates before claims:** no "it works" statement without a lint/typecheck/test/browser observation behind it.
+- **TDD at the seams:** routing and auth-contract changes start as failing unit tests (`parseHash`, adapter behavior), then implement.
+- **Interaction sweep:** every anchor CTA, tab, form validation, reset flow, 404 path, and back-navigation exercised in the headless browser; console error budget = zero.
 - **Responsive sweep:** 390px and 1440px viewports; overflow and nav-height assertions.
+- **Parity sweep:** computed-style assertions against the live reference for the audited metrics (heading weights, CTA geometry, 404 spec, link counts, tokens).
 
-### 7.3 Verification Ledger (executed 2026-09-14, commit `0fa109b`)
+### 7.3 Verification Ledger (executed 2026-09-14, commit `0fa109b` — v1.0.0 baseline)
 
 | Check | Result |
 | --- | --- |
@@ -404,20 +468,65 @@ v1.0.0 ships the **demo adapter**: sign-in accepts well-formed credentials (stat
 | Forgot password → reset panel → success toast | Verified |
 | Unknown hash (`#/nonexistent-page`) → 404 view | Verified |
 | Unknown server path (`/some-unknown-path`) → same 404 | Verified (HTTP + rendered) |
-| Computed-style parity vs reference (primary/foreground/background/fonts/CTA/card metrics) | Exact match on all sampled values |
+| Computed-style parity vs reference (primary/foreground/background/fonts/CTA/card metrics) | Exact match on sampled tokens; heading weights/CTA height were NOT sampled in v1.0.0 — caught by the v1.1.0 audit (F-01…F-05) and fixed |
 | Mobile 390px: no horizontal overflow, nav 72px, H1 48px | Verified |
 | Console errors after full scroll + interaction sweep | 0 |
 | Visual pairwise comparison (target vs clone, 1440×900) | Hero 9/10, Features 10/10, Events 8→passing after nav-behavior fix (VLM-assisted) |
+
+### 7.3b Verification Ledger (executed 2026-09-14, post-remediation — v1.1.0)
+
+Full audit trail: `docs/REMEDIATION_PLAN.md` (findings F-01…F-14, remediation phases A–G).
+
+| Check | Result |
+| --- | --- |
+| `bun run lint` | 0 errors, 0 warnings |
+| `bun run typecheck` (`tsc --noEmit`) | 0 errors |
+| `bun run test` (Vitest) | 21/21 passed (parseHash 11 + demo adapter 10) |
+| Live E2E suite (38 checks) on deployed preview | 38/38 PASS |
+| H1 / Events H2 / Event-card H3 computed weight vs reference | 700 = 700 (was 400/400/600 — F-01/F-02/F-03 fixed) |
+| Hero CTA geometry vs reference | 56px = 56px, padding 36px, same bg (was 48px — F-04 fixed) |
+| 404 spec vs reference | muted band `rgb(244,244,246)`, 36px bold, pink underlined anchor, `href="/"`, both testids present (F-05 fixed) |
+| Landing `#/` anchor count vs reference | 7 = 7 (was 0–1 — F-06 fixed) |
+| Auth data-testids (`login-email`, `login-submit`, …) | Present (F-07 fixed) |
+| Signup/login/reset/Google flows on live preview | All pass (empty-submit errors, weak-password zod rejection, valid signup → toast → home) |
+| Hash + server-path 404 escape flows | Both land on home (F-05 regression guard) |
+| Back/forward history semantics | Verified |
+| Mobile 390px: no overflow, nav 72px, H1 48px | Verified |
+| Console errors after full scroll + interaction sweep | 0 |
+| Production build | Succeeds; dev server healthy; preview 200 |
+| Dependency pruning integrity | 46 unused components + ~37 unused deps removed; app compiles, renders, all flows pass |
+
+Known-equivalent serialization differences (not defects): Tailwind 4 emits `oklab()` for `/opacity` colors and `calc(infinity*1px)` for `rounded-full`, where the reference (Tailwind 3-era values) serializes as `rgba(250,250,250,0.9)` / `9999px`; rendered pixels are identical.
+
+### 7.3c Verification Ledger (executed 2026-09-14, post-security-audit — v1.1.1, Next 16.3.5)
+
+Audit trail: `docs/SECURITY_AUDIT.md` (findings SEC-01…SEC-05, QLY-01, TST-01; remediation R2-1…R2-6).
+
+| Check | Result |
+| --- | --- |
+| `bun run lint` | 0 errors, 0 warnings |
+| `bun run typecheck` (`tsc --noEmit`) | 0 errors |
+| `bun run test` (Vitest) | 21/21 passed |
+| Production build (`next build`, standalone) | Succeeds — `/` + `/_not-found` static, `/api` dynamic |
+| Supply-chain re-audit | 0 critical, 0 high reachable from runtime deps; 8 dev/lint-only advisories remain (documented residual) |
+| `next` version | 16.3.5 (≥ 16.3.3 security floor — 34 advisories cleared, incl. 2 unauth-RCE criticals) |
+| `sharp` / `postcss` resolved | 0.35.4 / 8.5.28 (via `overrides`) |
+| Security headers on `/` | `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy: camera=(), microphone=(), geolocation=()` — all observed in the HTTP response |
+| Live E2E suite (38 checks) after the framework bump | 38/38 PASS |
+| Computed-style parity after the framework bump | H1 68px/700 = ref; CTA 56px/36px-pad/same bg = ref; tokens identical; only known-equivalent serialization diffs |
+| Dev server health | 200 on :3000 and the preview host |
 
 ### 7.4 Pre-PR / Pre-Deploy Checklist
 
 - [ ] `bun run lint` clean
 - [ ] `bun run typecheck` clean
-- [ ] Golden path in a real browser: load → CTA → auth → validated submit → toast → home
-- [ ] Unknown-hash and unknown-path both show the 404 view
+- [ ] `bun run test` clean (21 unit tests)
+- [ ] Golden path in a real browser: load → anchor CTA → auth → validated submit → toast → home
+- [ ] Unknown-hash and unknown-path both show the reference-spec 404 view
 - [ ] 390px viewport: no overflow
 - [ ] Zero console errors
 - [ ] No new App Router routes, no inline content, no adapter imports in UI
+- [ ] Landing `#/` anchor count still ≥ 5; heading weights still 700 (parity invariants)
 
 ---
 
@@ -449,8 +558,8 @@ None configured. Recommended minimal pipeline: lint → typecheck → build → 
 ### 8.5 Repository & Delivery
 
 - Source of truth: `git@github.com:nordeim/event-spark-2.git`, linear history on `main`.
-- Push history: `3fd74fb` (owner's `prompt-to-create.md`) → `ca07629` (scaffold) → `0fa109b` (v1.0.0 app). The owner's commit was preserved via rebase, not overwrite.
-- Deploys use the deploy key held outside the repo (`/workspace .ssh/`, gitignored); the wrapper is a paramiko-based `GIT_SSH` shim (`scripts/git_ssh_wrapper.py`, workspace-only).
+- Push history: `3fd74fb` (owner's `prompt-to-create.md`) → `ca07629` (scaffold) → `0fa109b` (v1.0.0 app) → `fa7d9a1` (v1.0.0 docs) → `a8ce8a4` (owner's `session_1.md`) → remediation commits (v1.1.0: remediated codebase; v1.1.1: security-audit fixes + docs/audit re-baseline). The owner's commits were preserved via rebase, never overwritten.
+- Deploys use the deploy key held outside the repo (`.ssh/`, gitignored); the wrapper is a paramiko-based `GIT_SSH` shim (`scripts/git_ssh_wrapper.py`, workspace-only).
 
 ---
 
@@ -498,11 +607,15 @@ Trunk-based on `main`; short-lived `feat/*` or `fix/*` branches; atomic commits.
 
 | Priority | Issue | Impact | Status |
 | --- | --- | --- | --- |
-| Medium | No unit/integration test runner wired (Vitest planned for `parseHash` + demo auth adapter) | Regression risk on routing/auth logic | Open |
 | Low | Auth is a simulated adapter; no real session/provider | Sign-in accepts any well-formed credentials (disclosed in toast) | By design — swap point documented (ADR-004) |
 | Low | Confetti placement is approximate on sub-`lg` viewports (reference exposes only `lg` coordinates) | Cosmetic, desktop parity is exact | Accepted |
 | Low | LCP image optimization not applied to hero photos | Marketing page is asset-light; no measured regression | Accepted (ADR-006) |
+| Low | No CI pipeline | Gates run manually (lint → typecheck → test → E2E scripts) | Open — §8.4 recommendation stands |
+| Low | 8 dev/lint-time-only dependency advisories (eslint/babel chain; not shipped in the standalone artifact) | Theoretical toolchain risk only | Accepted + registered (`docs/SECURITY_AUDIT.md` §6) |
 | Info | Reference navbar behavior (hidden until first scroll intent) replicated exactly, incl. its quirks | First-load users don't see the nav rail | Intentional parity |
+| Info | The user-cited source site `editorial-portfolio-9d8e325b.lovable.app` is a different product; the documented reference remains `event-spark-2.lovable.app` | Parity audits used the documented reference | Flagged to owner (finding F-13) |
+
+Resolved in v1.1.0 (historical): unit-test runner absent (F-08) → Vitest wired, 21 tests; stringly-typed auth errors (F-09) → `AuthServiceError`; button-CTAs (F-06) → anchors; heading-weight/CTA-height/404 drift (F-01–F-05) → re-measured and fixed; dead scaffold (F-11) → pruned.
 
 ---
 
@@ -510,17 +623,20 @@ Trunk-based on `main`; short-lived `feat/*` or `fix/*` branches; atomic commits.
 
 | File | ~Lines | Purpose |
 | --- | --- | --- |
-| `src/app/page.tsx` | 55 | SPA shell: hash-route switch, scroll reset, SmoothScroll wrap |
-| `src/hooks/use-hash-route.ts` | 65 | `parseHash` + `navigate` + history sync — all routing logic |
-| `src/app/globals.css` | 160 | `@theme inline` tokens, `:root` HSL vars, `drift` keyframes |
-| `src/components/landing/hero.tsx` | 250 | Confetti layer, floating cards, rotating headline, CTA |
-| `src/components/landing/features.tsx` | 190 | Four feature cards + glow decorations |
-| `src/components/landing/feature-mocks.tsx` | 170 | Product illustration mocks (event page, chart, orbit, avatars) |
-| `src/components/auth/auth-view.tsx` | 400 | Tabs, RHF+zod forms, reset flow, Google, toasts |
-| `src/lib/auth/types.ts` | 40 | `AuthService` contract |
-| `src/lib/auth/demo-auth-service.ts` | 60 | Deterministic simulated adapter |
-| `src/data/events.ts` | 130 | Landing content: events, category cards, rotating words |
-| `src/components/landing/scroll-reveal.tsx` | 45 | The one motion wrapper used everywhere |
+| `src/app/page.tsx` | 60 | SPA shell: MotionConfig + hash-route switch, scroll reset, SmoothScroll wrap |
+| `src/hooks/use-hash-route.ts` | 61 | `parseHash` + `navigate` + history sync — all routing logic (unit-tested) |
+| `src/hooks/use-hash-route.test.ts` | 57 | `parseHash` contract suite (11 tests) |
+| `src/app/globals.css` | 153 | `@theme inline` tokens, `:root` HSL vars, `drift` keyframes |
+| `src/components/landing/hero.tsx` | 231 | Confetti layer, floating cards, rotating headline, h-14 anchor CTA |
+| `src/components/landing/features.tsx` | 152 | Four feature cards + glow decorations |
+| `src/components/landing/feature-mocks.tsx` | 160 | Product illustration mocks (event page, chart, orbit, avatars) |
+| `src/components/auth/auth-view.tsx` | 517 | Tabs, RHF+zod forms, reset flow, Google, toasts, testids, typed error mapping |
+| `src/lib/auth/types.ts` | 47 | `AuthService` contract, `AuthError` union, `AuthServiceError` carrier |
+| `src/lib/auth/demo-auth-service.ts` | 54 | Deterministic simulated adapter (typed failures) |
+| `src/lib/auth/demo-auth-service.test.ts` | 91 | Adapter contract suite (10 tests) |
+| `src/components/shared/not-found-view.tsx` | 32 | Reference-spec 404 (muted band, pink underlined anchor) shared by hash + server routes |
+| `src/data/events.ts` | 120 | Landing content: events, category cards, rotating words |
+| `src/components/landing/scroll-reveal.tsx` | 42 | The one motion wrapper used everywhere |
 
 ---
 

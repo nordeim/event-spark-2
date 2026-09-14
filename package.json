@@ -11,32 +11,36 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@hookform/resolvers": "^5.1.1",
-    "@radix-ui/react-tabs": "^1.1.12",
-    "@radix-ui/react-toast": "^1.2.14",
+    "@hookform/resolvers": "^5.9.1",
+    "@radix-ui/react-tabs": "^1.1.21",
+    "@radix-ui/react-toast": "^1.2.23",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "framer-motion": "^12.23.2",
+    "framer-motion": "^12.43.0",
     "lenis": "^1.3.26",
     "lucide-react": "^0.525.0",
-    "next": "^16.1.1",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "react-hook-form": "^7.60.0",
-    "tailwind-merge": "^3.3.1",
-    "zod": "^4.0.2"
+    "next": "16.3.5",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "react-hook-form": "^7.88.0",
+    "tailwind-merge": "^3.7.0",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "bun-types": "^1.3.4",
-    "eslint": "^9",
-    "eslint-config-next": "^16.1.1",
-    "tailwindcss": "^4",
-    "tw-animate-css": "^1.3.5",
-    "typescript": "^5",
+    "@tailwindcss/postcss": "^4.3.3",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "bun-types": "^1.4.2",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "16.3.5",
+    "tailwindcss": "^4.3.3",
+    "tw-animate-css": "^1.4.0",
+    "typescript": "^5.9.3",
     "vitest": "^5.0.0"
+  },
+  "overrides": {
+    "sharp": "^0.35.4",
+    "postcss": "^8.5.23"
   },
   "description": "Event Spark — the event platform where ideas become experiences. Next.js 16 + React 19 + TypeScript + Tailwind CSS 4 clone of event-spark-2.lovable.app built on the home-financing foundation."
 }

@@ -2,7 +2,7 @@
 
 > The event platform where ideas become experiences.
 
-[![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org)
+[![Next.js](https://img.shields.io/badge/Next.js-16.3-black?logo=next.js)](https://nextjs.org)
 [![React](https://img.shields.io/badge/React-19-61dafb?logo=react)](https://react.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6?logo=typescript)](https://www.typescriptlang.org)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4-38bdf8?logo=tailwindcss)](https://tailwindcss.com)
@@ -20,25 +20,26 @@ Event Spark is an "events for organizers" product template: organizers publish b
 | --- | --- |
 | 🎯 Pixel-faithful landing page | Hero with rotating headline word, confetti + floating category cards, popular events grid, four feature cards with live product mocks, testimonials, dark CTA panel with ticket illustration |
 | 🔐 Auth experience | Login / signup tabs, password reset flow, Google provider button — react-hook-form + zod validation, loading states, and toasts |
-| 🧭 Single-route hash navigation | SPA view switching (`#/`, `#/auth`, unknown → 404) with working history and deep links, no extra server routes |
-| 🎬 Reference motion behavior | Lenis inertial scrolling, scroll-reveal fade-ups, hide-on-load navbar, H1 word rotation, pulsing badge, drifting auth shapes |
-| 🎨 Exact design tokens | Computed-style-verified color, type, radius, and shadow system via Tailwind v4 CSS-first `@theme` |
+| 🧭 Single-route hash navigation | SPA view switching (`#/`, `#/auth`, unknown → 404) with working history and deep links; every user-facing CTA is a real `<a href="#/…">` anchor — middle-click, copy-link, and crawler discovery all work |
+| 🎬 Reference motion behavior | Lenis inertial scrolling, scroll-reveal fade-ups, hide-on-load navbar, H1 word rotation, pulsing badge, drifting auth shapes — all framer choreography gated by `MotionConfig reducedMotion="user"` |
+| 🎨 Exact design tokens | Computed-style-verified color, type, radius, and shadow system via Tailwind v4 CSS-first `@theme` — headings 700, hero CTA 56px, 404 muted-band spec all re-measured against the reference |
 | 🧩 Typed content layer | Events, testimonials, and integrations as readonly typed modules in `src/data/` |
-| 🔌 Swappable auth boundary | `AuthService` interface with a deterministic demo adapter; swap one binding for Supabase/Auth.js without touching UI code |
-| ✅ Verified quality | ESLint + `tsc --noEmit` gates green; agent-browser end-to-end interaction and responsive checks documented in the PAD |
+| 🔌 Swappable auth boundary | `AuthService` interface with a deterministic demo adapter and a typed `AuthServiceError` carrier (`AuthError` union — no string-matching); swap one binding for Supabase/Auth.js without touching UI code |
+| ✅ Verified quality | ESLint + `tsc --noEmit` + Vitest (21 unit tests) gates green; 38-check live-browser E2E suite and computed-style parity assertions documented in the PAD; layered code review + security audit report with evidence in [`docs/SECURITY_AUDIT.md`](./docs/SECURITY_AUDIT.md) |
 
 ## Tech Stack
 
 | Layer | Technology | Version | Purpose |
 | --- | --- | --- | --- |
-| Framework | Next.js (App Router) | 16.1 | Server rendering, single-route SPA shell |
+| Framework | Next.js (App Router) | 16.3 | Server rendering, single-route SPA shell (pinned above the 16.3.3 security floor) |
 | UI runtime | React | 19 | Component model |
 | Language | TypeScript (strict) | 5 | Type safety end to end |
 | Styling | Tailwind CSS | 4 | CSS-first `@theme` token system |
-| UI primitives | shadcn/ui (Radix) | — | Accessible tabs, toaster, and form primitives |
+| UI primitives | shadcn/ui (Radix) | — | Accessible tabs, toaster, and form primitives (scaffold pruned to the three components in use) |
 | Motion | framer-motion | 12.23 | Scroll reveals, word rotation, entrance choreography |
 | Smooth scroll | lenis | 1.3.26 | Inertial scrolling matching the reference feel |
 | Forms | react-hook-form + zod | 7.60 / 4.0 | Validated, accessible auth forms |
+| Unit testing | Vitest | 5 | `parseHash` routing contract + demo auth adapter contract |
 | Icons | lucide-react | 0.525 | Icon set |
 | Runtime | Bun | ≥1.1 | Package manager and dev server |
 
@@ -86,6 +87,7 @@ Open <http://localhost:3000>.
 ```bash
 bun run lint        # ESLint — 0 errors
 bun run typecheck   # tsc --noEmit — 0 errors
+bun run test        # Vitest — 21 unit tests (hash router + auth adapter)
 ```
 
 ## Design System
@@ -110,7 +112,8 @@ Conventions that matter when contributing:
 - **Single route only.** All views hang off `src/app/page.tsx` via the hash router — do not add App Router page routes.
 - **Content is data.** New events/testimonials go in `src/data/`, not inline JSX.
 - **Tailwind v4 CSS-first.** Tokens are defined in `globals.css` `@theme`; no `tailwind.config.js` theme extension.
-- **Strict gates.** `bun run lint` and `bun run typecheck` must pass before every commit; fix root causes, never suppress.
+- **Strict gates.** `bun run lint`, `bun run typecheck`, and `bun run test` must pass before every commit; fix root causes, never suppress.
+- **CTAs are anchors.** User-facing navigation uses `<a href="#/…">` so links stay crawlable and middle-clickable; `onNavigate` is reserved for programmatic navigation (e.g. the post-auth redirect).
 
 ## Source & Credit
 

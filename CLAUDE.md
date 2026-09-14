@@ -48,6 +48,7 @@ Event Spark 2 is a pixel-faithful, production-grade rebuild of the `event-spark-
 - Server components only in `layout.tsx` / `not-found.tsx`; product views are client components.
 - All user input flows through controlled handlers (`react-hook-form`), never raw form submission.
 - Handle every async state: loading (spinner + disabled button), error (field alert or toast), success (toast + navigation).
+- User-facing CTAs are `<a href="#/…">` anchors, not `onClick` buttons — preserves middle-click/copy-link/crawler semantics (the reference does the same).
 
 **Styling (Tailwind v4, CSS-first)**
 - Tokens live in `src/app/globals.css` (`@theme inline`, `:root` HSL variables): primary pink `hsl(340 75% 58%)`, foreground `hsl(240 30% 14%)`, background `hsl(0 0% 98%)`.
@@ -78,17 +79,24 @@ bun run dev
 | `bun run start` | Serve the standalone build |
 | `bun run lint` | ESLint (must exit clean) |
 | `bun run typecheck` | `tsc --noEmit` (must exit clean) |
+| `bun run test` | Vitest unit suites (must exit clean) |
 
 ## Testing Strategy
 
-No unit-test runner is wired yet (tracked as a known task in the PAD §11). Current verification contract:
+Vitest is wired (`vitest.config.ts`, node environment, `@` alias, `src/**/*.test.ts`). Two unit suites run via `bun run test`:
 
-- **Gates**: `bun run lint` + `bun run typecheck` before every commit.
-- **Golden-path browser pass**: fresh load renders title `Event Spark - Your event platform template`; hero word rotates; CTA → `#/auth?mode=signup`; empty signup submit shows per-field errors; valid signup (password ≥ 8 with mixed case + digit) fires a toast and returns home; forgot-password flow completes; unknown hash shows 404; unknown server path shows the same 404.
+- **`src/hooks/use-hash-route.test.ts`** (11 tests) — the `parseHash` contract: empty/`#`/`#/` → home; `#/auth` and `?mode=` handling; auth subpaths → 404 (reference parity); unknown hashes → 404; raw strings without `#`.
+- **`src/lib/auth/demo-auth-service.test.ts`** (10 tests) — the demo adapter contract: sign-in resolves; password policy (length, case mix, digit) enforced via typed `AuthServiceError`; provider and reset flows resolve; ~900ms latency simulated.
+
+Full verification contract beyond the unit suites:
+
+- **Gates**: `bun run lint` + `bun run typecheck` + `bun run test` before every commit.
+- **Golden-path browser pass** (38-check live E2E, workspace script): fresh load renders title `Event Spark - Your event platform template`; hero word rotates; anchor CTA → `#/auth?mode=signup`; empty signup submit shows per-field errors; valid signup (password ≥ 8 with mixed case + digit) fires a toast and returns home; forgot-password flow completes; unknown hash and unknown server path show the reference-spec 404 (muted band, 36px bold, pink underlined home link, testids).
+- **Computed-style parity pass**: H1/H2/H3 weights 700, hero CTA 56px, nav 72px, ≥ 5 `#/` anchors on landing, tokens identical to the reference.
 - **Responsive pass**: 390px viewport — no horizontal overflow, nav 72px, H1 48px.
 - **Zero console errors** after a full scroll + interaction sweep.
 
-When adding a test runner, start with Vitest on `src/lib/auth/demo-auth-service.ts` (pure, deterministic) and the hash router's `parseHash`.
+When adding behavior to `parseHash` or the auth seam, extend the matching suite first (TDD), then implement.
 
 ## Code Quality Standards
 
@@ -103,7 +111,7 @@ When adding a test runner, start with Vitest on `src/lib/auth/demo-auth-service.
 
 ## Error Handling & Debugging
 
-- Auth failures map to typed outcomes (`weak-password` → field message; network → retryable toast copy).
+- Auth failures map to typed outcomes: adapters throw `AuthServiceError` with a `code: AuthError` union value (`weak-password` → field message; `network` → retryable toast copy) — never string-match error messages.
 - `window.scrollTo({ behavior: "instant" })` is used on view switches to avoid fighting Lenis.
 - Dev-server panic "Failed to restore task data" = corrupted Turbopack cache → stop, `rm -rf .next`, restart (see AGENTS.md Gotchas).
 
@@ -116,7 +124,7 @@ When adding a test runner, start with Vitest on `src/lib/auth/demo-auth-service.
 
 ### Architecture
 
-Single-route SPA shell (`page.tsx`) + hash router (`useHashRoute`) + view components. Navigation flows through `onNavigate` callbacks only. Layout metrics that define the design: hero `min-h-[620px]` centered content inside `py-20 lg:py-28` (total 844px at desktop), floating category cards positioned inside the min-height flex wrapper, confetti pinned to the viewport-wide decorations layer.
+Single-route SPA shell (`page.tsx`) + hash router (`useHashRoute`) + view components. User-facing CTAs are real `#/…` anchors (crawlable, middle-clickable); `onNavigate` handles programmatic navigation only (post-auth redirect). All framer motion is wrapped in `MotionConfig reducedMotion="user"`. Layout metrics that define the design: hero `min-h-[620px]` centered content inside `py-20 lg:py-28` (total 844px at desktop), floating category cards positioned inside the min-height flex wrapper, confetti pinned to the viewport-wide decorations layer.
 
 ### API Design
 
