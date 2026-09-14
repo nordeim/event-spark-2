@@ -4,6 +4,7 @@ import type {
   AuthResult,
   SignUpInput,
 } from "./types";
+import { AuthServiceError } from "./types";
 
 const NETWORK_LATENCY_MS = 900;
 
@@ -36,7 +37,7 @@ export const demoAuthService: AuthService = {
   async signUp(input: SignUpInput): Promise<AuthResult> {
     await sleep(NETWORK_LATENCY_MS);
     if (passwordIssue(input.password)) {
-      throw new Error("weak-password");
+      throw new AuthServiceError("weak-password");
     }
     return outcome(input.email);
   },

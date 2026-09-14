@@ -71,7 +71,7 @@ export function Features() {
           <span className="inline-block text-[11px] font-bold tracking-[0.2em] uppercase text-primary mb-4">
             Built for organizers
           </span>
-          <h2 className="text-4xl sm:text-5xl lg:text-6xl font-display mb-5 text-foreground tracking-[-0.035em] leading-[1.02]">
+          <h2 className="text-4xl sm:text-5xl lg:text-6xl font-display font-bold mb-5 text-foreground tracking-[-0.035em] leading-[1.02]">
             Everything you need to
             <br />
             run amazing events.

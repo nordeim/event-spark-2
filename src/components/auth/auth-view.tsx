@@ -9,6 +9,7 @@ import { Loader2 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Logo } from "@/components/shared/logo";
 import { authService } from "@/lib/auth";
+import { AuthServiceError } from "@/lib/auth/types";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 
@@ -154,9 +155,20 @@ export function AuthView({ initialMode, onNavigate }: AuthViewProps) {
     try {
       const result = await authService.signIn(values);
       reportSuccess(result.email, "Welcome back");
-    } catch {
-      loginForm.setError("password", {
-        message: "We couldn't sign you in with those credentials.",
+    } catch (error) {
+      if (
+        error instanceof AuthServiceError &&
+        error.code === "invalid-credentials"
+      ) {
+        loginForm.setError("password", {
+          message: "We couldn't sign you in with those credentials.",
+        });
+        return;
+      }
+      toast({
+        title: "Connection problem",
+        description:
+          "We couldn't reach the sign-in service. Check your network and try again.",
       });
     }
   });
@@ -166,11 +178,24 @@ export function AuthView({ initialMode, onNavigate }: AuthViewProps) {
       const result = await authService.signUp(values);
       reportSuccess(result.email, "Account created");
     } catch (error) {
-      signUpForm.setError("password", {
-        message:
-          error instanceof Error && error.message === "weak-password"
-            ? "Use at least 8 characters with upper, lower case, and a number."
-            : "We couldn't create your account. Try again in a moment.",
+      if (error instanceof AuthServiceError) {
+        if (error.code === "weak-password") {
+          signUpForm.setError("password", {
+            message:
+              "Use at least 8 characters with upper, lower case, and a number.",
+          });
+          return;
+        }
+        if (error.code === "email-already-registered") {
+          signUpForm.setError("email", {
+            message: "An account with this email already exists.",
+          });
+          return;
+        }
+      }
+      toast({
+        title: "Something went wrong",
+        description: "We couldn't create your account. Please try again.",
       });
     }
   });
@@ -224,14 +249,13 @@ export function AuthView({ initialMode, onNavigate }: AuthViewProps) {
           transition={{ duration: 0.6 }}
           className="text-center mb-8"
         >
-          <button
-            type="button"
-            onClick={() => onNavigate("/")}
-            className="inline-block transition-transform duration-300 hover:scale-[1.03]"
+          <a
+            href="#/"
+            className="inline-block transition-transform duration-300 hover:scale-[1.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm"
             aria-label="eventspark — back to home"
           >
             <Logo glyphClassName="w-12 h-12" wordmarkClassName="text-2xl" />
-          </button>
+          </a>
           <p className="text-muted-foreground mt-2 text-sm">
             Create events people actually want to attend
           </p>
@@ -307,7 +331,7 @@ export function AuthView({ initialMode, onNavigate }: AuthViewProps) {
               </TabsList>
 
               <TabsContent value="login">
-                <form onSubmit={onLogin} noValidate>
+                <form onSubmit={onLogin} noValidate data-testid="login-form">
                   <div className="space-y-4">
                     <div className="space-y-1.5">
                       <label
@@ -320,6 +344,7 @@ export function AuthView({ initialMode, onNavigate }: AuthViewProps) {
                         id="login-email"
                         type="email"
                         autoComplete="email"
+                        data-testid="login-email"
                         className={inputClasses}
                         {...loginForm.register("email")}
                       />
@@ -337,6 +362,7 @@ export function AuthView({ initialMode, onNavigate }: AuthViewProps) {
                         id="login-password"
                         type="password"
                         autoComplete="current-password"
+                        data-testid="login-password"
                         className={inputClasses}
                         {...loginForm.register("password")}
                       />
@@ -347,6 +373,7 @@ export function AuthView({ initialMode, onNavigate }: AuthViewProps) {
 
                     <button
                       type="submit"
+                      data-testid="login-submit"
                       disabled={loginForm.formState.isSubmitting}
                       className={submitClasses}
                     >
@@ -372,7 +399,7 @@ export function AuthView({ initialMode, onNavigate }: AuthViewProps) {
               </TabsContent>
 
               <TabsContent value="signup">
-                <form onSubmit={onSignUp} noValidate>
+                <form onSubmit={onSignUp} noValidate data-testid="signup-form">
                   <div className="space-y-4">
                     <div className="space-y-1.5">
                       <label
@@ -385,6 +412,7 @@ export function AuthView({ initialMode, onNavigate }: AuthViewProps) {
                         id="signup-name"
                         type="text"
                         autoComplete="name"
+                        data-testid="signup-name"
                         className={inputClasses}
                         {...signUpForm.register("fullName")}
                       />
@@ -404,6 +432,7 @@ export function AuthView({ initialMode, onNavigate }: AuthViewProps) {
                         id="signup-email"
                         type="email"
                         autoComplete="email"
+                        data-testid="signup-email"
                         className={inputClasses}
                         {...signUpForm.register("email")}
                       />
@@ -423,6 +452,7 @@ export function AuthView({ initialMode, onNavigate }: AuthViewProps) {
                         id="signup-password"
                         type="password"
                         autoComplete="new-password"
+                        data-testid="signup-password"
                         className={inputClasses}
                         {...signUpForm.register("password")}
                       />
@@ -433,6 +463,7 @@ export function AuthView({ initialMode, onNavigate }: AuthViewProps) {
 
                     <button
                       type="submit"
+                      data-testid="signup-submit"
                       disabled={signUpForm.formState.isSubmitting}
                       className={submitClasses}
                     >

@@ -1,36 +1,31 @@
 "use client";
 
-import { cn } from "@/lib/utils";
-
-interface NotFoundViewProps {
-  onNavigate: (to: string) => void;
-}
-
-/** Mirrors the reference app's 404 screen: centered content, no navbar. */
-export function NotFoundView({ onNavigate }: NotFoundViewProps) {
+/**
+ * Mirrors the reference app's 404 screen: centered content on the muted
+ * band, a small bold "404" in the body face, and a pink underlined text
+ * link home. No navbar. Shared by the hash router (in-app 404) and the
+ * server-level not-found route — so the home link targets the real path
+ * `/`, which works from both contexts (a hash link would strand users
+ * on a server-rendered 404 path).
+ */
+export function NotFoundView() {
   return (
-    <main className="min-h-screen bg-background flex flex-col items-center justify-center px-6 py-10 sm:py-12 relative overflow-hidden">
-      <div className="text-center relative z-10">
-        <h1 className="font-display font-bold text-7xl sm:text-8xl text-foreground tracking-[-0.035em] leading-[0.95] mb-6">
-          404
-        </h1>
-        <p className="text-lg lg:text-xl text-muted-foreground mb-10 max-w-md mx-auto leading-relaxed">
+    <main
+      data-testid="page-not-found"
+      className="min-h-screen bg-muted flex items-center justify-center px-6"
+    >
+      <div className="text-center">
+        <h1 className="mb-4 text-4xl font-bold text-foreground">404</h1>
+        <p className="mb-4 text-xl text-muted-foreground">
           Oops! Page not found
         </p>
-        <button
-          type="button"
-          onClick={() => onNavigate("/")}
-          className={cn(
-            "inline-flex items-center justify-center gap-2 rounded-full",
-            "text-sm font-semibold text-background bg-foreground hover:bg-foreground/90",
-            "px-6 h-11",
-            "transition-[transform,colors,box-shadow] duration-200 ease-out",
-            "hover:-translate-y-[1px] hover:shadow-float active:scale-[0.97]",
-            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-          )}
+        <a
+          href="/"
+          data-testid="not-found-home-link"
+          className="text-primary underline hover:text-primary/90 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm"
         >
           Return to Home
-        </button>
+        </a>
       </div>
     </main>
   );

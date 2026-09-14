@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { MotionConfig } from "framer-motion";
 import { useHashRoute } from "@/hooks/use-hash-route";
 import { SmoothScroll } from "@/components/shared/smooth-scroll";
 import { Navbar } from "@/components/landing/navbar";
@@ -13,16 +14,16 @@ import { Footer } from "@/components/landing/footer";
 import { AuthView } from "@/components/auth/auth-view";
 import { NotFoundView } from "@/components/shared/not-found-view";
 
-function LandingPage({ onNavigate }: { onNavigate: (to: string) => void }) {
+function LandingPage() {
   return (
     <div className="min-h-screen bg-background overflow-x-hidden">
-      <Navbar onNavigate={onNavigate} />
+      <Navbar />
       <main>
-        <Hero onNavigate={onNavigate} />
-        <PopularEvents onNavigate={onNavigate} />
+        <Hero />
+        <PopularEvents />
         <Features />
         <Testimonials />
-        <FinalCta onNavigate={onNavigate} />
+        <FinalCta />
       </main>
       <Footer />
     </div>
@@ -32,7 +33,11 @@ function LandingPage({ onNavigate }: { onNavigate: (to: string) => void }) {
 /**
  * Application shell. The product ships as a single App Router route with
  * hash-based view switching (`#/`, `#/auth`, anything else → 404), which
- * keeps deep links and history semantics intact without extra server routes.
+ * keeps deep links and history semantics intact without extra server
+ * routes. User-facing CTAs are `#/…` anchors; the `onNavigate` callback
+ * remains for programmatic navigation (e.g. the post-auth redirect).
+ * `MotionConfig reducedMotion="user"` honors `prefers-reduced-motion`
+ * across all framer-motion choreography.
  */
 export default function Page() {
   const { route, navigate } = useHashRoute();
@@ -42,12 +47,14 @@ export default function Page() {
   }, [route.view]);
 
   return (
-    <SmoothScroll>
-      {route.view === "home" && <LandingPage onNavigate={navigate} />}
-      {route.view === "auth" && (
-        <AuthView initialMode={route.mode} onNavigate={navigate} />
-      )}
-      {route.view === "not-found" && <NotFoundView onNavigate={navigate} />}
-    </SmoothScroll>
+    <MotionConfig reducedMotion="user">
+      <SmoothScroll>
+        {route.view === "home" && <LandingPage />}
+        {route.view === "auth" && (
+          <AuthView initialMode={route.mode} onNavigate={navigate} />
+        )}
+        {route.view === "not-found" && <NotFoundView />}
+      </SmoothScroll>
+    </MotionConfig>
   );
 }

@@ -10,10 +10,6 @@ import {
   rotatingHeadlineWords,
 } from "@/data/events";
 
-interface HeroProps {
-  onNavigate: (to: string) => void;
-}
-
 interface HeroConfettiShape {
   readonly kind: "circle" | "square" | "triangle" | "pill";
   readonly color: string;
@@ -149,7 +145,12 @@ function RotatingWord() {
   );
 }
 
-export function Hero({ onNavigate }: HeroProps) {
+/**
+ * Hero: confetti layer, floating category cards, rotating headline word,
+ * and the primary CTA — a real `#/…` anchor so the navigation semantics
+ * (middle-click, copy-link, crawlers) match the reference.
+ */
+export function Hero() {
   return (
     <section aria-label="Hero" className="relative overflow-hidden">
       <HeroConfetti />
@@ -185,7 +186,7 @@ export function Hero({ onNavigate }: HeroProps) {
               initial={{ opacity: 0, y: 24 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.16 }}
-              className="text-5xl sm:text-6xl lg:text-[68px] 2xl:text-[80px] font-display tracking-[-0.035em] leading-[0.95] text-foreground mb-7"
+              className="text-5xl sm:text-6xl lg:text-[68px] 2xl:text-[80px] font-display font-bold tracking-[-0.035em] leading-[0.95] text-foreground mb-7"
             >
               The event platform where ideas become <RotatingWord />
             </motion.h1>
@@ -206,21 +207,21 @@ export function Hero({ onNavigate }: HeroProps) {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.32 }}
             >
-              <button
-                type="button"
-                onClick={() => onNavigate("/auth?mode=signup")}
+              <a
+                href="#/auth?mode=signup"
                 className={cn(
                   "inline-flex items-center justify-center gap-2 rounded-full",
-                  "text-base font-semibold px-9 h-12",
+                  "text-base font-semibold px-9 h-14",
                   "text-background bg-foreground hover:bg-foreground/90",
                   "transition-[transform,colors,box-shadow] duration-200 ease-out",
+                  "shadow-xl shadow-foreground/10",
                   "hover:-translate-y-[1px] hover:shadow-float active:scale-[0.97]",
                   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
                 )}
               >
                 Get started
                 <ArrowRight className="w-4 h-4" aria-hidden="true" />
-              </button>
+              </a>
             </motion.div>
           </div>
         </div>

@@ -4,17 +4,17 @@ import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/shared/logo";
 
-interface NavbarProps {
-  onNavigate: (to: string) => void;
-}
-
 /**
  * Fixed translucent 72px navbar rail that mirrors the reference behavior:
  * tucked away (translateY(-100px)) on initial load, then revealed by the
  * first user scroll intent (wheel/touch — not programmatic scroll) and
  * kept visible from then on. Remains keyboard-focusable throughout.
+ *
+ * Navigation CTAs are real anchors (`#/…`), matching the reference's link
+ * semantics: middle-click, copy-link, and crawler discovery all work; the
+ * hash router picks the change up via `hashchange`.
  */
-export function Navbar({ onNavigate }: NavbarProps) {
+export function Navbar() {
   const [revealed, setRevealed] = useState(false);
 
   useEffect(() => {
@@ -41,19 +41,17 @@ export function Navbar({ onNavigate }: NavbarProps) {
       )}
     >
       <div className="max-w-7xl mx-auto flex items-center justify-between h-[72px] px-6 lg:px-8">
-        <button
-          type="button"
-          onClick={() => onNavigate("/")}
-          className="transition-transform duration-300 hover:scale-[1.02] active:scale-95"
+        <a
+          href="#/"
+          className="transition-transform duration-300 hover:scale-[1.02] active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm"
           aria-label="eventspark — back to home"
         >
           <Logo />
-        </button>
+        </a>
 
         <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => onNavigate("/auth")}
+          <a
+            href="#/auth"
             className={cn(
               "inline-flex items-center justify-center rounded-full h-11 px-4 py-2",
               "text-sm font-medium text-foreground transition-colors duration-200",
@@ -62,10 +60,9 @@ export function Navbar({ onNavigate }: NavbarProps) {
             )}
           >
             Log in
-          </button>
-          <button
-            type="button"
-            onClick={() => onNavigate("/auth?mode=signup")}
+          </a>
+          <a
+            href="#/auth?mode=signup"
             className={cn(
               "inline-flex items-center justify-center rounded-full h-11 px-5 py-2",
               "text-sm font-semibold text-background bg-foreground",
@@ -75,7 +72,7 @@ export function Navbar({ onNavigate }: NavbarProps) {
             )}
           >
             Sign up
-          </button>
+          </a>
         </div>
       </div>
     </nav>

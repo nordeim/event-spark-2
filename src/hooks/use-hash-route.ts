@@ -7,9 +7,11 @@ export type AppRoute =
   | { view: "auth"; mode: "login" | "signup" }
   | { view: "not-found" };
 
-const AUTH_PREFIX = "#/auth";
-
-function parseHash(hash: string): AppRoute {
+/**
+ * Parses a raw hash string into a typed route. Exported for unit testing;
+ * the hook below is its only production consumer.
+ */
+export function parseHash(hash: string): AppRoute {
   const raw = hash.startsWith("#") ? hash.slice(1) : hash;
   const path = raw.split("?")[0] ?? "";
   const query = raw.split("?")[1] ?? "";
@@ -18,7 +20,7 @@ function parseHash(hash: string): AppRoute {
     return { view: "home" };
   }
 
-  if (path === "/auth" || path.startsWith(`${AUTH_PREFIX}/`)) {
+  if (path === "/auth") {
     const mode = query.includes("mode=signup")
       ? "signup"
       : "login";

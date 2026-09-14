@@ -5,10 +5,6 @@ import { ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ScrollReveal } from "./scroll-reveal";
 
-interface FinalCtaProps {
-  onNavigate: (to: string) => void;
-}
-
 /** Brand ticket illustration overlapping the dark CTA card. */
 function TicketGlyph() {
   return (
@@ -48,7 +44,7 @@ const ctaConfetti = [
   { left: "calc(50% - 54px)", top: "58px", size: 6, color: "#6CCB6F", radius: "2px" },
 ] as const;
 
-export function FinalCta({ onNavigate }: FinalCtaProps) {
+export function FinalCta() {
   return (
     <section className="pt-10 lg:pt-16 pb-12 lg:pb-16 relative">
       <div className="max-w-4xl mx-auto px-6 lg:px-8">
@@ -94,7 +90,7 @@ export function FinalCta({ onNavigate }: FinalCtaProps) {
 
             <div className="text-center relative z-10">
               <ScrollReveal>
-                <h2 className="text-4xl sm:text-6xl lg:text-7xl font-display mb-6 text-background tracking-[-0.035em] leading-[0.95]">
+                <h2 className="text-4xl sm:text-6xl lg:text-7xl font-display font-bold mb-6 text-background tracking-[-0.035em] leading-[0.95]">
                   Ready to spark
                   <br />
                   your next event?
@@ -103,9 +99,8 @@ export function FinalCta({ onNavigate }: FinalCtaProps) {
                   Join thousands of organizers who use eventspark to build
                   better events.
                 </p>
-                <button
-                  type="button"
-                  onClick={() => onNavigate("/auth?mode=signup")}
+                <a
+                  href="#/auth?mode=signup"
                   className={cn(
                     "inline-flex items-center justify-center gap-2 rounded-full",
                     "text-base font-semibold px-8 h-12",
@@ -117,7 +112,7 @@ export function FinalCta({ onNavigate }: FinalCtaProps) {
                 >
                   Get started for free
                   <ArrowRight className="w-4 h-4 ml-2" aria-hidden="true" />
-                </button>
+                </a>
               </ScrollReveal>
             </div>
           </div>

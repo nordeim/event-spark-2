@@ -12,7 +12,7 @@ export function Testimonials() {
     >
       <div className="max-w-7xl mx-auto px-6 lg:px-8">
         <ScrollReveal className="text-center mb-14">
-          <h2 className="text-3xl sm:text-4xl font-display mb-4 text-foreground tracking-[-0.02em]">
+          <h2 className="text-3xl sm:text-4xl font-display font-bold mb-4 text-foreground tracking-[-0.02em]">
             Loved by organizers
           </h2>
         </ScrollReveal>

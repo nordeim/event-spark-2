@@ -27,7 +27,7 @@ export function EventCard({ event }: EventCardProps) {
       <p className="text-[11px] text-primary font-bold uppercase tracking-[0.18em] mb-1.5">
         {event.dateLabel}
       </p>
-      <h3 className="font-display font-semibold text-lg text-foreground group-hover:text-primary transition-colors tracking-[-0.01em]">
+      <h3 className="font-display font-bold text-lg text-foreground group-hover:text-primary transition-colors tracking-[-0.01em]">
         {event.title}
       </h3>
       <p className="text-sm text-muted-foreground mt-0.5">
