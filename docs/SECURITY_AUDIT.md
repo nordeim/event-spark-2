@@ -89,3 +89,24 @@ No application-code changes are required — consistent with QLY-01 (zero applic
 | No CSP at the app level | Low (edge concern) | Documented (PAD §6.4): add CSP/frame-ancestors at the edge when deployed; app has no user-generated content or injection sinks |
 | Demo auth accepts any well-formed credentials | By design | Disclosed in UI toast; ADR-004 swap point for a real backend |
 | No CI pipeline | Low | Manual gate chain documented in PAD §7.4; §8.4 recommendation stands |
+
+---
+
+## 7. Session-3 Re-Audit Addendum (2026-09-14, PAD v1.1.2)
+
+The dependency tree was re-verified after the `bun.lock` re-sync (root ranges
+realigned with the committed `package.json`; see PAD v1.1.2 revision block).
+
+| Check | Result |
+| --- | --- |
+| `next` resolved version (lockfile) | 16.3.5 — above the 16.3.3 unauth-RCE floor (SEC-01 stays cleared) |
+| `sharp` resolved version (lockfile) | 0.35.4 via `overrides` (SEC-02 stays cleared) |
+| `postcss` resolved version (lockfile) | 8.5.28 via `overrides` (SEC-03 stays cleared) |
+| `npm audit` at fresh range resolution | **0 critical / 0 high / 0 total** (the previously registered 8 dev-only advisories clear at current resolution) |
+| Exact-lockfile dev-chain pins (picomatch 2.x, minimatch 3.x, brace-expansion 1.x, …) | Unchanged dev/lint-time-only residual — not present in the standalone production artifact; accepted per §6 |
+| Security headers on the deployed preview | All four observed live (`nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy`, `Permissions-Policy`) |
+| Live E2E after the lockfile refresh | 38/38 (harness tooling repaired — see PAD v1.1.2; zero application-code changes) |
+
+**Verdict: release claim holds on the refreshed dependency tree.** No new findings;
+all S1/S2 findings remain remediated; the residual register above is unchanged in
+substance (first row improved at fresh resolution).

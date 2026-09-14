@@ -1,13 +1,22 @@
-# Event Spark 2 — Master Project Architecture Document (PAD) v1.1.1
+# Event Spark 2 — Master Project Architecture Document (PAD) v1.1.2
 
 **Classification:** Internal Engineering Reference
 **Status:** DEFINITIVE, PRODUCTION-LOCKED BLUEPRINT
-**Companion Documents:** [README.md](./README.md) (product overview) · [AGENTS.md](./AGENTS.md) (agent shortcuts) · [CLAUDE.md](./CLAUDE.md) (agent workflow) · [docs/REMEDIATION_PLAN.md](./docs/REMEDIATION_PLAN.md) (round-1 audit + fixes) · [docs/SECURITY_AUDIT.md](./docs/SECURITY_AUDIT.md) (layered code review + security audit)
+**Companion Documents:** [README.md](./README.md) (product overview) · [AGENTS.md](./AGENTS.md) (agent shortcuts) · [CLAUDE.md](./CLAUDE.md) (agent workflow) · [docs/REMEDIATION_PLAN.md](./docs/REMEDIATION_PLAN.md) (round-1 audit + fixes) · [docs/SECURITY_AUDIT.md](./docs/SECURITY_AUDIT.md) (layered code review + security audit) · [docs/how-to-git-push-using-ssh-wrapper_SKILL.md](./docs/how-to-git-push-using-ssh-wrapper_SKILL.md) (SSH push procedure)
 **Last Updated:** 2026-09-14
 **Audience:** Senior Engineers, Tech Leads, DevOps, and Onboarding Engineers
 **Rule:** Every architectural decision in this document traces to a specific rationale. Nothing is here "because it's popular."
 
 ---
+
+#### Revision Block — v1.1.2 (Session-3 Re-Verification & Delivery Tooling)
+
+- `[SR]` Full gate chain re-verified on the refreshed dependency tree (lockfile re-sync): lint 0 problems · `tsc --noEmit` 0 errors · Vitest 21/21 · production build succeeds (`/` + `/_not-found` static, `/api` dynamic) · dev server and preview healthy.
+- `[SR]` `bun.lock` re-synced so the root package section matches the committed `package.json` ranges (the v1.1.1 commit carried a stale root block). Security-critical resolutions unchanged and re-verified in the lockfile: `next@16.3.5`, `sharp@0.35.4`, `postcss@8.5.28` (overrides enforced).
+- `[SR]` Live E2E suite re-run against the deployed preview: **38/38 PASS, twice consecutively** (deterministic). Three transient failures observed mid-session were root-caused to a toolchain regression in the *test harness*, not the app: `agent-browser find … click/fill` commands stopped dispatching effective events. The workspace E2E script now drives all form fills (native setter + input event) and clicks (JS `.click()`) through selectors; `T18.1` tightened from substring to exact URL match (it previously false-passed on `/unknown-path-x`). No application-code changes were required.
+- `[SR]` Computed-style parity re-run vs `event-spark-2.lovable.app`: all audited invariants hold (H1 68px/700, hero CTA 56px/36px-pad, nav 72px, 7 `#/` anchors, tokens identical); remaining diffs are the documented known-equivalent serializations.
+- `[SR]` Supply-chain re-audit: `npm audit` against the current dependency set reports **0 critical / 0 high / 0 total** at fresh resolution; the previously registered 8 dev/lint-time-only advisories are cleared at current range resolution (older dev-chain pins that remain in the exact lockfile stay accepted as documented residual — not shipped in the standalone artifact).
+- `[SR]` Delivery tooling vendored into the repo: `docs/ssh_git_wrapper_v3.py` (paramiko-based Git SSH transport, with the `shlex` command-quoting fix) + `docs/how-to-git-push-using-ssh-wrapper_SKILL.md` (procedure, flags, troubleshooting, repo push rules). The wrapper is the canonical push path for restricted hosts and was verified via `ls-remote`/`fetch`/`pull` in this session.
 
 #### Revision Block — v1.1.1 (Security-Audit Release)
 
@@ -558,8 +567,8 @@ None configured. Recommended minimal pipeline: lint → typecheck → build → 
 ### 8.5 Repository & Delivery
 
 - Source of truth: `git@github.com:nordeim/event-spark-2.git`, linear history on `main`.
-- Push history: `3fd74fb` (owner's `prompt-to-create.md`) → `ca07629` (scaffold) → `0fa109b` (v1.0.0 app) → `fa7d9a1` (v1.0.0 docs) → `a8ce8a4` (owner's `session_1.md`) → remediation commits (v1.1.0: remediated codebase; v1.1.1: security-audit fixes + docs/audit re-baseline). The owner's commits were preserved via rebase, never overwritten.
-- Deploys use the deploy key held outside the repo (`.ssh/`, gitignored); the wrapper is a paramiko-based `GIT_SSH` shim (`scripts/git_ssh_wrapper.py`, workspace-only).
+- Push history: `3fd74fb` (owner's `prompt-to-create.md`) → `ca07629` (scaffold) → `0fa109b` (v1.0.0 app) → `fa7d9a1` (v1.0.0 docs) → `a8ce8a4` (owner's `session_1.md`) → remediation commits (v1.1.0: remediated codebase; v1.1.1: security-audit fixes + docs/audit re-baseline) → `dde7734` (owner's `session_2.md`) → v1.1.2 (lockfile re-sync + repo-included push tooling + docs re-baseline). The owner's commits were preserved via rebase/fast-forward, never overwritten.
+- Pushes from restricted hosts (no `openssh-client`) use the **repo-included** paramiko wrapper `docs/ssh_git_wrapper_v3.py` via `GIT_SSH_COMMAND` — procedure, flags, and troubleshooting in [`docs/how-to-git-push-using-ssh-wrapper_SKILL.md`](./docs/how-to-git-push-using-ssh-wrapper_SKILL.md). The deploy key itself always stays outside the tree (`.ssh/`, gitignored). A second workspace-only shim (`scripts/git_ssh_wrapper.py`, gitignored) served the same purpose in earlier sessions; the `docs/` copy is canonical for maintainers.
 
 ---
 

@@ -40,6 +40,7 @@ Run order for changes: **lint → typecheck → test → manual browser check**.
 
 - Workspace-only directories (`foundation/`, `recon/`, `scripts/`, `.ssh/`, `tool-results/`, etc.) are gitignored — they hold reference material and deployment tooling, never ship. Do not "clean them up" into the repo.
 - **Dependency overrides are load-bearing.** `package.json` `overrides` pins `sharp` (^0.35.4) and `postcss` (^8.5.23) to clear published advisories in next's transitive tree — removing them re-opens high-severity findings. `next` is pinned ≥ 16.3.3 (unauth-RCE security floor). Audit trail: `docs/SECURITY_AUDIT.md`.
+- **Pushes from hosts without OpenSSH** use the repo-included paramiko wrapper `docs/ssh_git_wrapper_v3.py` as `GIT_SSH_COMMAND` (procedure: `docs/how-to-git-push-using-ssh-wrapper_SKILL.md`). The deploy key stays in gitignored `.ssh/` — never commit key material.
 - No environment variables are required in the current build. If a real auth backend lands, add vars to `.env.example` and document them in the PAD §9.2.
 - Conventional Commits, one logical change per commit. History is linear on `main`.
 
