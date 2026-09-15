@@ -110,3 +110,69 @@ realigned with the committed `package.json`; see PAD v1.1.2 revision block).
 **Verdict: release claim holds on the refreshed dependency tree.** No new findings;
 all S1/S2 findings remain remediated; the residual register above is unchanged in
 substance (first row improved at fresh resolution).
+
+---
+
+## 8. Session-4 Deep Re-Audit Addendum (2026-09-15, PAD v1.1.3)
+
+**Methodology:** `my-pi-agent` skills catalog — `code-review-and-audit` (deep mode:
+5-phase tiered pipeline with native CLI fallback where the runner's scripts are
+absent), `code-review-checklist` (12-category tactical scan), `security-and-hardening`
+(OWASP + npm-audit triage), `verification-and-review-protocol` (Iron Law).
+**Target release claim under test:** *"the codebase matches its documented contracts
+(AGENTS/CLAUDE/README/PAD) and is safe to ship."*
+
+### 8.1 Tiered Pipeline Execution Record
+
+| Phase | Tool | Result |
+|-------|------|--------|
+| 1 — Static analysis | `audit_runner.py` scripts absent → native fallback: `bun run lint` + `bun run typecheck` | 0 problems / 0 errors |
+| 2 — Security scan | native fallback: fresh-resolution `npm audit` (temporary lockfile), secret-pattern grep over tracked files, dangerous-pattern scan (`eval`, `innerHTML`, `dangerouslySetInnerHTML`, `javascript:` URIs, `child_process`), navigation-contract scan, live header probe, key-material audit | **0 vulnerabilities total** (0 critical/high/moderate/low) · no secrets (test-fixture passwords only) · no dangerous patterns · no `window.location` in sections · all 4 baseline headers live · no key material tracked (the SSH-push doc carries a redacted placeholder only) |
+| 3 — Code quality (12-category) | `checklist_runner.py` | 80 raw findings → **all false positives or trivial**: 6 "hardcoded credential" criticals are deterministic test fixtures (documented §2); 60 "PascalCase const" mediums are camelCase misreads (`const result`, `const start`); 1 "unclear CAPS comment" is Next.js-generated `next-env.d.ts`; 1 "null return" is the idiomatic `FieldError` early return |
+| 4 — Test coverage | native fallback: `bun run test` | 21/21 (parseHash 11 + demo adapter 10) |
+| 5 — Performance | Lighthouse unavailable in sandbox; navigation-timing snapshot on the dev server instead | DCL 142ms · load 451ms · 50 resources (dev-mode; production profiling stays a deploy-time task — consistent with prior rounds) |
+| 6 — Expert review | Manual tiered review + docs-contract conformance matrix | Findings below |
+
+### 8.2 Findings (severity-ranked)
+
+| ID | Sev | Category | Finding | Evidence | Confidence |
+|----|-----|----------|---------|----------|------------|
+| AUD-05 | S3 | Error handling / contract | `auth-view.tsx` `onReset` and `onGoogle` have **no failure path**: an adapter rejection (e.g. a real backend throwing `AuthServiceError("network")`) becomes an unhandled promise rejection — no toast, no field error, no user feedback. Violates the documented contracts (CLAUDE.md: "Handle every async state: loading, error, success" and "network → retryable toast copy"; the `AuthError` union includes `network` precisely for this). Dormant with the demo adapter (reset/provider always resolve) — becomes user-facing at the ADR-004 swap point. | `auth-view.tsx` L203–222 vs onLogin/onSignUp (both catch + map typed codes) | Verified (code inspection; both paths) |
+| AUD-01 | S4 | Docs contract | PAD §7.1 test-distribution table still lists the retired 38-check E2E suite and the old workspace script name; README "Verified quality" row still says "38-check" | PAD L461, README L28 vs the v1.1.3 51-check suite (§7.3d) | Verified |
+| AUD-02 | S4 | Docs contract | Stale stack versions vs the lockfile: README + PAD §1.2 say framer-motion 12.23/12.23.2 (resolved **12.43.0**), react-hook-form 7.60 (**7.88.0**), zod 4.0 (**4.6.5**), @hookform/resolvers 5.1 (**5.9.1**) | `bun.lock` resolutions | Verified |
+| AUD-03 | S4 | Docs contract | PAD §3.3 Pattern 2 (shell snippet) omits the v1.1.3 `key={route.mode}` on `AuthView` — repo convention is snippets mirror shipped code | PAD L293–313 vs `page.tsx` L53–59 | Verified |
+| AUD-04 | S4 | Tooling | The skill's checklist scanner heuristics (PascalCase const, credential regex) produce false positives on this codebase — documented so future runs don't re-trip | §8.1 Phase 3 | Verified |
+
+**Clean scans (no findings):** supply chain (0 vulnerabilities at fresh resolution;
+`next@16.3.5`, `sharp@0.35.4`, `postcss@8.5.28` overrides re-verified in the lockfile) ·
+secrets · injection surfaces · layer model (`@/app/` imports only inside `app/`; no
+sideways view imports) · TS strictness (zero `any`/`@ts-ignore`/`eslint-disable`) ·
+navigation contract (anchors + `onNavigate`) · dead code (all 14 runtime deps
+referenced; all 3 `ui/` primitives consumed) · unit gates 21/21 · live E2E 51/51 ·
+production build zero warnings · `/api` responds as documented.
+
+### 8.3 Contract Conformance Verdict (docs ↔ code)
+
+**PASS.** Every behavioral claim in AGENTS.md, CLAUDE.md, README.md, and PAD v1.1.3
+was re-verified against the code after the Round-3 remediation: the six architecture
+facts, the navigation contract, the auth seam and typed-error carrier, the light-only
+brand, the measured tokens (incl. the corrected `#E44479` and the 404 display face),
+the layer model, the Tailwind v4 CSS-first setup (`tailwind.config.ts` now genuinely
+content-paths-only), the reduced-motion gates (Lenis + `MotionConfig`), the 21-test
+unit suites, and the 51-check E2E invariants. The remaining deltas are documentation
+drift (AUD-01..03) and one latent error-handling gap (AUD-05) — remediated in Round 4
+below. Safe-to-ship claim **holds** after Round 4.
+
+### 8.4 Round 4 Remediation Record (executed 2026-09-15)
+
+| ID | Status | Result |
+|----|--------|--------|
+| AUD-05 | Executed | `onReset` + `onGoogle` now carry typed failure handling (`network` → retryable toast; other → flow-specific failure toast); gates green; E2E 51/51 (happy paths unchanged). Coverage limitation registered: failure paths are unreachable with the deterministic demo adapter, so the guard is contract-verified and regression-verified — not failure-path-executed (component-test infra deliberately absent per TST-01). |
+| AUD-01 | Executed | PAD §7.1 + README updated to the 51-check suite |
+| AUD-02 | Executed | README + PAD §1.2 stack versions re-aligned to lockfile resolutions |
+| AUD-03 | Executed | PAD §3.3 Pattern 2 snippet mirrors the shipped shell (incl. `key={route.mode}`) |
+| AUD-04 | Documented | Scanner false-positive heuristics on this codebase (no action) |
+
+Closing evidence: PAD v1.1.4 §7.3e (lint 0 · tsc 0 · Vitest 21/21 · E2E 51/51 ·
+build zero warnings · supply chain 0 vulnerabilities · headers live).
+**Verdict: safe-to-ship claim holds.**

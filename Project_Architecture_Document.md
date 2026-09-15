@@ -1,13 +1,26 @@
-# Event Spark 2 — Master Project Architecture Document (PAD) v1.1.2
+# Event Spark 2 — Master Project Architecture Document (PAD) v1.1.4
 
 **Classification:** Internal Engineering Reference
 **Status:** DEFINITIVE, PRODUCTION-LOCKED BLUEPRINT
-**Companion Documents:** [README.md](./README.md) (product overview) · [AGENTS.md](./AGENTS.md) (agent shortcuts) · [CLAUDE.md](./CLAUDE.md) (agent workflow) · [docs/REMEDIATION_PLAN.md](./docs/REMEDIATION_PLAN.md) (round-1 audit + fixes) · [docs/SECURITY_AUDIT.md](./docs/SECURITY_AUDIT.md) (layered code review + security audit) · [docs/how-to-git-push-using-ssh-wrapper_SKILL.md](./docs/how-to-git-push-using-ssh-wrapper_SKILL.md) (SSH push procedure)
-**Last Updated:** 2026-09-14
+**Companion Documents:** [README.md](./README.md) (product overview) · [AGENTS.md](./AGENTS.md) (agent shortcuts) · [CLAUDE.md](./CLAUDE.md) (agent workflow) · [docs/REMEDIATION_PLAN.md](./docs/REMEDIATION_PLAN.md) (remediation rounds 1–4) · [docs/SECURITY_AUDIT.md](./docs/SECURITY_AUDIT.md) (layered code review + security audit) · [docs/how-to-git-push-using-ssh-wrapper_SKILL.md](./docs/how-to-git-push-using-ssh-wrapper_SKILL.md) (SSH push procedure)
+**Last Updated:** 2026-09-15
 **Audience:** Senior Engineers, Tech Leads, DevOps, and Onboarding Engineers
 **Rule:** Every architectural decision in this document traces to a specific rationale. Nothing is here "because it's popular."
 
 ---
+
+#### Revision Block — v1.1.4 (Session-4 Deep Re-Audit Remediation)
+
+- `[SR]` Tiered code review + security audit re-run (deep mode, `docs/SECURITY_AUDIT.md` §8): contract conformance PASS; supply chain clean (0 vulnerabilities at fresh resolution); one latent S3 finding fixed — `onReset` and `onGoogle` in `auth-view.tsx` now carry typed failure handling (an adapter rejection maps to the documented "network → retryable toast" contract instead of an unhandled promise rejection). Coverage limitation registered honestly: the failure paths are unreachable with the deterministic demo adapter (reset/provider always resolve; zod pre-validates signup), so the guard is contract-verified and regression-verified (21/21 unit, 51/51 E2E), not failure-path-executed.
+- `[SR]` Docs drift cleared: §7.1 test distribution updated to the 51-check suite; §1.2 stack versions re-aligned to the lockfile resolutions; §3.3 Pattern 2 snippet now mirrors the shipped shell (includes `key={route.mode}`).
+- `[SR]` §7.3e ledger records the Round 4 closing gates.
+
+#### Revision Block — v1.1.3 (Session-4 E2E & Parity Re-Audit)
+
+- `[SR]` Fresh 51-check browser E2E suite executed against the local build (v2 harness: IIFE-wrapped evals, exact-URL assertions, hero-scoped CTA selector, heading-based section checks — four test-methodology artifacts from the prior harness fixed and documented in `docs/REMEDIATION_PLAN.md` §Round 3). Two real defects found and fixed red → green: the 404 `h1` now uses the display face (the reference styles bare `h1`s with Bricolage Grotesque; the earlier "DM Sans" transcription was wrong), and `AuthView` is keyed by `route.mode` so a `hashchange` that flips `#/auth` ↔ `#/auth?mode=signup` (back/forward, URL edit) now remounts the view with the correct tab instead of desyncing URL and UI.
+- `[SR]` `tailwind.config.ts` reduced to content-paths-only: the stale v3-style theme block and the `tailwindcss-animate` import (package pruned in v1.1.0) were emitting `Module not found` on every production build. The file was never part of the v4 CSS-first PostCSS pipeline; build now completes with zero warnings.
+- `[SR]` `--primary` hex corrected in the docs: `hsl(340 75% 58%)` renders as `#E44479` (`rgb(228 68 121)`) on both the reference and the clone — parity holds; the previously documented `#E4447C` was a transcription drift.
+- `[SR]` §7.3d ledger records the closing gates: lint 0 · tsc 0 · Vitest 21/21 · build zero warnings · E2E 51/51 twice · parity invariants incl. the 404 display face.
 
 #### Revision Block — v1.1.2 (Session-3 Re-Verification & Delivery Tooling)
 
@@ -73,9 +86,9 @@ This PAD is the single source of truth for the Event Spark 2 engineering referen
 | Language | TypeScript (strict) | 5 | Compile-time contract enforcement across the typed content and service layers |
 | Styling | Tailwind CSS | 4 (via `@tailwindcss/postcss`) | CSS-first `@theme` tokens match the foundation's convention and keep the design system in one file |
 | UI primitives | shadcn/ui on Radix | 3 components in use | Accessible tabs/toaster without hand-rolled ARIA; scaffold pruned to what ships |
-| Animation | framer-motion | 12.23.2 | Declarative scroll reveals and presence-based word rotation |
+| Animation | framer-motion | 12.43.0 (resolved) | Declarative scroll reveals and presence-based word rotation |
 | Smooth scroll | lenis | 1.3.26 | The reference site's actual scroll engine; `autoRaf` mode |
-| Forms | react-hook-form + @hookform/resolvers + zod | 7.60 / 5.1 / 4.0 | Typed schema validation with per-field error surfacing |
+| Forms | react-hook-form + @hookform/resolvers + zod | 7.88.0 / 5.9.1 / 4.6.5 (resolved) | Typed schema validation with per-field error surfacing |
 | Unit testing | Vitest | 5.0 | `parseHash` + demo auth adapter contract suites (21 tests) |
 | Icons | lucide-react | 0.525 | Same icon family as the reference (stars, arrows, puzzle) |
 | Notifications | shadcn toaster (Radix toast) | scaffold | Toast contract used by the auth flows |
@@ -98,7 +111,7 @@ No database, no HTTP API layer, no background workers in v1.1.0 — §4 and §7 
 - **Context:** The shell must switch between landing, auth (login/signup), and 404 without path routes, while preserving back/forward and shareable URLs.
 - **Decision:** `useHashRoute` (src/hooks/use-hash-route.ts) parses `window.location.hash` into a discriminated union (`{view:'home'} | {view:'auth', mode} | {view:'not-found'}`); navigation flows exclusively through an `onNavigate(to)` callback passed to views.
 - **Rationale:** A single parser is the only place routing logic exists; the union makes impossible states unrepresentable; the callback contract decouples sections from the router.
-- **Consequences:** + One-file routing, exhaustively typed. − Query-in-hash (`#/auth?mode=signup`) is a convention to respect in `parseHash`.
+- **Consequences:** + One-file routing, exhaustively typed. − Query-in-hash (`#/auth?mode=signup`) is a convention to respect in `parseHash`. The shell keys `AuthView` by `route.mode` so mode flips arriving via `hashchange` (back/forward, URL edits) remount the view and keep the tab in sync with the URL (v1.1.3 fix — previously the mounted view ignored later `initialMode` changes, desyncing URL and UI).
 - **Alternatives Rejected:** URL-state libraries (overkill for three views); context-based view state (loses history).
 
 **ADR-003: Design tokens extracted from the live reference via computed styles**
@@ -229,7 +242,7 @@ src/
 │   ├── shared/
 │   │   ├── logo.tsx          ← glyph + wordmark lockup (nav/hero/auth/footer)
 │   │   ├── smooth-scroll.tsx ← Lenis provider, reduced-motion gated
-│   │   └── not-found-view.tsx← reference-spec 404: muted band, bold 36px, pink underlined anchor home link
+│   │   └── not-found-view.tsx← reference-spec 404: muted band, bold 36px display-face 404, pink underlined anchor home link
 │   └── ui/
 │       ├── tabs.tsx          ← Radix tabs (auth switcher)
 │       ├── toast.tsx         ← toast primitive (scaffold, in use)
@@ -296,7 +309,11 @@ export default function Page() {
       <SmoothScroll>
         {route.view === "home" && <LandingPage />}
         {route.view === "auth" && (
-          <AuthView initialMode={route.mode} onNavigate={navigate} />
+          <AuthView
+            key={route.mode}
+            initialMode={route.mode}
+            onNavigate={navigate}
+          />
         )}
         {route.view === "not-found" && <NotFoundView />}
       </SmoothScroll>
@@ -373,7 +390,7 @@ Scale (measured): H1 68px / −0.035em / leading 0.95 (`2xl: 80px`); section H2 
 
 | Token | Value | Hex | Usage | Contrast vs `--background` |
 | --- | --- | --- | --- | --- |
-| `--primary` | `hsl(340 75% 58%)` | `#E4447C` | Accent word, badges, links, CTA button, audience card | 3.9:1 (large text/graphics only) |
+| `--primary` | `hsl(340 75% 58%)` | `#E44479` | Accent word, badges, links, CTA button, audience card | 3.9:1 (large text/graphics only) |
 | `--primary-foreground` | `hsl(0 0% 100%)` | `#FFFFFF` | Text on primary | — |
 | `--foreground` | `hsl(240 30% 14%)` | `#19192E` | Ink; dark surfaces | 14.8:1 |
 | `--background` | `hsl(0 0% 98%)` | `#FAFAFA` | Page | — |
@@ -451,7 +468,7 @@ Audited 2026-09-14 (full report: `docs/SECURITY_AUDIT.md` — severity-graded fi
 | --- | --- | --- | --- |
 | Static gates | 2 | `bun run lint`, `bun run typecheck` | ESLint 9 (next/core-web-vitals + TS), tsc 5 strict |
 | Unit tests | 21 | `src/hooks/use-hash-route.test.ts` (11), `src/lib/auth/demo-auth-service.test.ts` (10) | Vitest 5 (node env, `@` alias) |
-| Browser E2E (live site) | 38 checks | workspace script `scripts/e2e_live_tests.sh` (gitignored) | agent-browser (Playwright-class headless) |
+| Browser E2E (live site) | 51 checks | workspace script `scripts/e2e_local_tests.sh` (gitignored) | agent-browser (Playwright-class headless) |
 | Computed-style parity | 6 assertion groups | workspace script `scripts/parity_check.sh` (gitignored) | agent-browser vs `event-spark-2.lovable.app` |
 
 ### 7.2 Test Patterns
@@ -524,6 +541,38 @@ Audit trail: `docs/SECURITY_AUDIT.md` (findings SEC-01…SEC-05, QLY-01, TST-01;
 | Live E2E suite (38 checks) after the framework bump | 38/38 PASS |
 | Computed-style parity after the framework bump | H1 68px/700 = ref; CTA 56px/36px-pad/same bg = ref; tokens identical; only known-equivalent serialization diffs |
 | Dev server health | 200 on :3000 and the preview host |
+
+### 7.3d Verification Ledger (executed 2026-09-15, session-4 E2E & parity re-audit — v1.1.3)
+
+Audit trail: `docs/REMEDIATION_PLAN.md` §Round 3 (findings R3-01…R3-04, phases A–F).
+
+| Check | Result |
+| --- | --- |
+| `bun run lint` | 0 errors, 0 warnings |
+| `bun run typecheck` (`tsc --noEmit`) | 0 errors |
+| `bun run test` (Vitest) | 21/21 passed |
+| Production build (`next build`, standalone) | Succeeds with **zero warnings** (the `tailwindcss-animate` Module-not-found warning is cleared — R3-03); `/` + `/_not-found` static, `/api` dynamic |
+| Browser E2E suite (51 checks, v2 harness) | **51/51 PASS, twice consecutively** (deterministic) |
+| Auth mode sync (R3-02 regression guard) | T13.1–T13.3 green: deep link selects signup; `hashchange` `#/auth?mode=signup` → `#/auth` now switches to the login tab (was stuck on signup); back to signup re-selects signup |
+| 404 display face (R3-01 regression guard) | T14.1/T14.2 green: 404 `h1` renders Bricolage Grotesque 36px/700 = reference computed style (was DM Sans) |
+| Computed-style parity re-run | H1 68px/700 = ref; hero CTA 56px/36px-pad = ref; nav 72px = ref; H2/H3 weights 700 = ref; tokens identical; 404 title font family, size, weight, muted band, link color/decoration/href = ref; auth input 44px = ref (radius serialization remains the documented known-equivalent) |
+| 404 escapes (hash + server path) | Both land on home |
+| Mobile 390px | No horizontal overflow; H1 48px; nav 72px |
+| Console/page errors after full scroll + interaction sweep | 0 |
+
+### 7.3e Verification Ledger (executed 2026-09-15, session-4 deep re-audit remediation — v1.1.4)
+
+Audit trail: `docs/SECURITY_AUDIT.md` §8 + `docs/REMEDIATION_PLAN.md` §Round 4 (findings AUD-01…AUD-05).
+
+| Check | Result |
+| --- | --- |
+| `bun run lint` / `tsc --noEmit` | 0 problems / 0 errors |
+| `bun run test` (Vitest) | 21/21 passed |
+| Supply-chain re-audit (fresh-resolution `npm audit`) | 0 vulnerabilities total; `next@16.3.5` / `sharp@0.35.4` / `postcss@8.5.28` re-verified in the lockfile |
+| Security headers on `/` (dev server) | All four observed live |
+| Browser E2E suite | 51/51 PASS (reset + Google flows regression-guarded after the AUD-05 fix) |
+| Production build | Zero warnings |
+| Docs contract re-check | §7.1/§1.2/§3.3 + README re-aligned; version claims now track lockfile resolutions |
 
 ### 7.4 Pre-PR / Pre-Deploy Checklist
 
@@ -632,18 +681,18 @@ Resolved in v1.1.0 (historical): unit-test runner absent (F-08) → Vitest wired
 
 | File | ~Lines | Purpose |
 | --- | --- | --- |
-| `src/app/page.tsx` | 60 | SPA shell: MotionConfig + hash-route switch, scroll reset, SmoothScroll wrap |
+| `src/app/page.tsx` | 69 | SPA shell: MotionConfig + hash-route switch, scroll reset, SmoothScroll wrap; `AuthView` keyed by `route.mode` (URL↔tab sync) |
 | `src/hooks/use-hash-route.ts` | 61 | `parseHash` + `navigate` + history sync — all routing logic (unit-tested) |
 | `src/hooks/use-hash-route.test.ts` | 57 | `parseHash` contract suite (11 tests) |
 | `src/app/globals.css` | 153 | `@theme inline` tokens, `:root` HSL vars, `drift` keyframes |
 | `src/components/landing/hero.tsx` | 231 | Confetti layer, floating cards, rotating headline, h-14 anchor CTA |
 | `src/components/landing/features.tsx` | 152 | Four feature cards + glow decorations |
 | `src/components/landing/feature-mocks.tsx` | 160 | Product illustration mocks (event page, chart, orbit, avatars) |
-| `src/components/auth/auth-view.tsx` | 517 | Tabs, RHF+zod forms, reset flow, Google, toasts, testids, typed error mapping |
+| `src/components/auth/auth-view.tsx` | 553 | Tabs, RHF+zod forms, reset flow, Google, toasts, testids, typed error mapping on every async handler |
 | `src/lib/auth/types.ts` | 47 | `AuthService` contract, `AuthError` union, `AuthServiceError` carrier |
 | `src/lib/auth/demo-auth-service.ts` | 54 | Deterministic simulated adapter (typed failures) |
 | `src/lib/auth/demo-auth-service.test.ts` | 91 | Adapter contract suite (10 tests) |
-| `src/components/shared/not-found-view.tsx` | 32 | Reference-spec 404 (muted band, pink underlined anchor) shared by hash + server routes |
+| `src/components/shared/not-found-view.tsx` | 36 | Reference-spec 404 (muted band, display-face 36px bold, pink underlined anchor) shared by hash + server routes |
 | `src/data/events.ts` | 120 | Landing content: events, category cards, rotating words |
 | `src/components/landing/scroll-reveal.tsx` | 42 | The one motion wrapper used everywhere |
 

@@ -201,7 +201,27 @@ export function AuthView({ initialMode, onNavigate }: AuthViewProps) {
   });
 
   const onReset = resetForm.handleSubmit(async (values) => {
-    await authService.requestPasswordReset(values.email);
+    try {
+      await authService.requestPasswordReset(values.email);
+    } catch (error) {
+      if (
+        error instanceof AuthServiceError &&
+        error.code === "network"
+      ) {
+        toast({
+          title: "Connection problem",
+          description:
+            "We couldn't reach the reset service. Check your network and try again.",
+        });
+        return;
+      }
+      toast({
+        title: "Something went wrong",
+        description:
+          "We couldn't send the reset link. Please try again in a moment.",
+      });
+      return;
+    }
     setResetting(false);
     resetForm.reset();
     toast({
@@ -216,6 +236,22 @@ export function AuthView({ initialMode, onNavigate }: AuthViewProps) {
     try {
       const result = await authService.signInWithProvider("google");
       reportSuccess(result.email, "Signed in with Google");
+    } catch (error) {
+      if (
+        error instanceof AuthServiceError &&
+        error.code === "network"
+      ) {
+        toast({
+          title: "Connection problem",
+          description:
+            "We couldn't reach the sign-in service. Check your network and try again.",
+        });
+        return;
+      }
+      toast({
+        title: "Something went wrong",
+        description: "We couldn't sign you in with Google. Please try again.",
+      });
     } finally {
       setProviderPending(false);
     }

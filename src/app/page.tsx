@@ -38,6 +38,11 @@ function LandingPage() {
  * remains for programmatic navigation (e.g. the post-auth redirect).
  * `MotionConfig reducedMotion="user"` honors `prefers-reduced-motion`
  * across all framer-motion choreography.
+ *
+ * `AuthView` is keyed by `route.mode`: a hashchange that flips the mode
+ * (`#/auth` ↔ `#/auth?mode=signup`, e.g. via back/forward) remounts the
+ * view so the active tab always matches the URL — the URL stays the
+ * source of truth. Tab clicks inside the view change local state only.
  */
 export default function Page() {
   const { route, navigate } = useHashRoute();
@@ -51,7 +56,11 @@ export default function Page() {
       <SmoothScroll>
         {route.view === "home" && <LandingPage />}
         {route.view === "auth" && (
-          <AuthView initialMode={route.mode} onNavigate={navigate} />
+          <AuthView
+            key={route.mode}
+            initialMode={route.mode}
+            onNavigate={navigate}
+          />
         )}
         {route.view === "not-found" && <NotFoundView />}
       </SmoothScroll>

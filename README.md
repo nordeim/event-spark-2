@@ -12,7 +12,7 @@ A production-grade, pixel-faithful rebuild of the [event-spark-2.lovable.app](ht
 
 ## Overview
 
-Event Spark is an "events for organizers" product template: organizers publish branded registration pages, track attendees, and manage their community. This repository reconstructs that product's public surface as a maintainable, typed, single-page App Router application. The visual design (pink `#E4447C` accent on warm near-white, Bricolage Grotesque display type over DM Sans body, floating category cards, scroll-reveal choreography) was measured from the live reference rather than eyeballed, so the rebuild holds up at any viewport. Content lives in typed data modules; the auth surface is a clean service boundary ready for a real backend.
+Event Spark is an "events for organizers" product template: organizers publish branded registration pages, track attendees, and manage their community. This repository reconstructs that product's public surface as a maintainable, typed, single-page App Router application. The visual design (pink `#E44479` accent on warm near-white, Bricolage Grotesque display type over DM Sans body, floating category cards, scroll-reveal choreography) was measured from the live reference rather than eyeballed, so the rebuild holds up at any viewport. Content lives in typed data modules; the auth surface is a clean service boundary ready for a real backend.
 
 ## Key Features
 
@@ -25,7 +25,7 @@ Event Spark is an "events for organizers" product template: organizers publish b
 | 🎨 Exact design tokens | Computed-style-verified color, type, radius, and shadow system via Tailwind v4 CSS-first `@theme` — headings 700, hero CTA 56px, 404 muted-band spec all re-measured against the reference |
 | 🧩 Typed content layer | Events, testimonials, and integrations as readonly typed modules in `src/data/` |
 | 🔌 Swappable auth boundary | `AuthService` interface with a deterministic demo adapter and a typed `AuthServiceError` carrier (`AuthError` union — no string-matching); swap one binding for Supabase/Auth.js without touching UI code |
-| ✅ Verified quality | ESLint + `tsc --noEmit` + Vitest (21 unit tests) gates green; 38-check live-browser E2E suite and computed-style parity assertions documented in the PAD; layered code review + security audit report with evidence in [`docs/SECURITY_AUDIT.md`](./docs/SECURITY_AUDIT.md) |
+| ✅ Verified quality | ESLint + `tsc --noEmit` + Vitest (21 unit tests) gates green; 51-check live-browser E2E suite and computed-style parity assertions documented in the PAD; layered code review + security audit report with evidence in [`docs/SECURITY_AUDIT.md`](./docs/SECURITY_AUDIT.md) |
 
 ## Tech Stack
 
@@ -36,9 +36,9 @@ Event Spark is an "events for organizers" product template: organizers publish b
 | Language | TypeScript (strict) | 5 | Type safety end to end |
 | Styling | Tailwind CSS | 4 | CSS-first `@theme` token system |
 | UI primitives | shadcn/ui (Radix) | — | Accessible tabs, toaster, and form primitives (scaffold pruned to the three components in use) |
-| Motion | framer-motion | 12.23 | Scroll reveals, word rotation, entrance choreography |
+| Motion | framer-motion | 12.43 | Scroll reveals, word rotation, entrance choreography |
 | Smooth scroll | lenis | 1.3.26 | Inertial scrolling matching the reference feel |
-| Forms | react-hook-form + zod | 7.60 / 4.0 | Validated, accessible auth forms |
+| Forms | react-hook-form + zod | 7.88 / 4.6 | Validated, accessible auth forms |
 | Unit testing | Vitest | 5 | `parseHash` routing contract + demo auth adapter contract |
 | Icons | lucide-react | 0.525 | Icon set |
 | Runtime | Bun | ≥1.1 | Package manager and dev server |
@@ -94,7 +94,7 @@ bun run test        # Vitest — 21 unit tests (hash router + auth adapter)
 
 | Token | Value | Usage |
 | --- | --- | --- |
-| `--primary` | `hsl(340 75% 58%)` — `#E4447C` | Brand pink: headline accent word, badges, links, CTA button, audience card |
+| `--primary` | `hsl(340 75% 58%)` — `#E44479` | Brand pink: headline accent word, badges, links, CTA button, audience card |
 | `--foreground` | `hsl(240 30% 14%)` — `#19192E` | Ink / dark surfaces (hero CTA, dark feature card, CTA panel) |
 | `--background` | `hsl(0 0% 98%)` — `#FAFAFA` | Page background |
 | `--muted` | `hsl(240 10% 96%)` | Tinted sections, form field chrome |

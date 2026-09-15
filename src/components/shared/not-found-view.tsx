@@ -2,11 +2,13 @@
 
 /**
  * Mirrors the reference app's 404 screen: centered content on the muted
- * band, a small bold "404" in the body face, and a pink underlined text
- * link home. No navbar. Shared by the hash router (in-app 404) and the
- * server-level not-found route — so the home link targets the real path
- * `/`, which works from both contexts (a hash link would strand users
- * on a server-rendered 404 path).
+ * band, a small bold "404" in the display face (the reference styles bare
+ * h1s with Bricolage Grotesque globally; the clone encodes it via
+ * `font-display`), and a pink underlined text link home. No navbar.
+ * Shared by the hash router (in-app 404) and the server-level not-found
+ * route — so the home link targets the real path `/`, which works from
+ * both contexts (a hash link would strand users on a server-rendered
+ * 404 path).
  */
 export function NotFoundView() {
   return (
@@ -15,7 +17,9 @@ export function NotFoundView() {
       className="min-h-screen bg-muted flex items-center justify-center px-6"
     >
       <div className="text-center">
-        <h1 className="mb-4 text-4xl font-bold text-foreground">404</h1>
+        <h1 className="mb-4 text-4xl font-bold font-display text-foreground">
+          404
+        </h1>
         <p className="mb-4 text-xl text-muted-foreground">
           Oops! Page not found
         </p>

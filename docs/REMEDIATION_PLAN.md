@@ -103,3 +103,130 @@ Severity: **P1** = visual-contract violation (documented fidelity promise broken
 - Real auth backend (ADR-004 seam stays; explicitly documented)
 - CI pipeline (PAD §8.4 recommendation stands)
 - Playwright browser-automation in-repo (agent-browser scripts remain workspace tooling under gitignored `scripts/`)
+
+---
+
+# Remediation Plan — Round 3 (Session 4 E2E + Parity Re-Audit)
+
+**Date:** 2026-09-15
+**Trigger:** Fresh browser E2E + computed-style parity audit of the local build against the live reference
+**Inputs:** 51-check E2E suite (`scripts/e2e_local_tests.sh`, workspace tooling), computed-style parity script (`scripts/parity_check.sh`), full gate chain re-run
+**Baseline before remediation:** `bun run lint` 0 problems · `tsc --noEmit` 0 errors · Vitest 21/21 · production build succeeds (with 1 warning) · E2E 49/51 (the 2 failures are the real findings below)
+**Methodology:** my-pi-agent skills — `plan-writing` (plan structure), `tdd` (red → green at pre-agreed seams), `webapp-testing`/`e2e-testing-lessons` (browser E2E), `clone-app-pat-pro` (computed styles as ground truth), `verification-and-review-protocol` (Iron Law: evidence before claims)
+**Test-infrastructure note (v1→v2):** the session-4 E2E suite fixed four test-methodology artifacts from the prior harness (documented so future sessions don't re-trip): evals are IIFE-wrapped (a shared eval lexical scope previously made `const` re-declarations throw and silently skip fills), redirect assertions use exact-URL matching (substring matching false-passed `#/auth?mode=signup` as "home"), the hero-CTA selector is scoped to the hero section (`querySelector('a[href=…]')` previously matched the 44px navbar Sign up first), and section-presence checks assert heading text rather than `aria-label` (the reference has no section labels; the clone's are an a11y enhancement).
+
+## 5. Round 3 Findings Inventory
+
+Severity: **P1** = visual-contract violation · **P2** = correctness/state bug · **P3** = hygiene/debt · **Info** = documentation drift.
+
+| ID | Sev | Area | Finding | Evidence |
+|----|-----|------|---------|----------|
+| R3-01 | P1 | 404 typography | The 404 `h1` renders in **DM Sans** on the clone but in **Bricolage Grotesque** on the reference (the reference's global heading style applies the display face to bare `h1`s; the clone requires an explicit `font-display` class, which `not-found-view.tsx` omits). Size/weight (36px/700), muted band, pink underlined anchor, and testids all match. The session-2 record (F-05) mis-transcribed the reference face as "DM Sans, not display face" — the live reference computed style is the ground truth. | E2E T14.1 RED; `getComputedStyle` on both sites: REF h1 font-family `"Bricolage Grotesque"` vs CLONE `"DM Sans"`; REF body `DM Sans` (p element matches) |
+| R3-02 | P2 | Router state sync | `AuthView` initializes its tab state from `initialMode` on mount only. A `hashchange` **within** the auth view (`#/auth?mode=signup` ↔ `#/auth` — back/forward, URL edit, or an external link) updates the route object but not the mounted component's tab: the URL says login while the Sign up tab stays displayed (and vice versa). History navigation within auth desyncs URL and UI. | E2E T13.2 RED (T13.1/T13.3 confirm the initial deep-link and return paths work); manual repro: `#/auth?mode=signup` → `location.hash='#/auth'` → tab stays SIGNUP |
+| R3-03 | P3 | Build hygiene | `tailwind.config.ts` still imports the pruned `tailwindcss-animate` package → every production build emits `Warning: Module not found: Can't resolve 'tailwindcss-animate'`. The file also carries a stale Tailwind v3-style theme block + `darkMode`/`plugins` that contradict the v4 CSS-first architecture and AGENTS.md's description ("only carries content paths for tooling"). Not part of the CSS pipeline (`postcss.config.mjs` uses `@tailwindcss/postcss` only) — no rendered-style impact; it is dead config plus a warning. | `bun run build` output; `grep tailwindcss-animate` → only `tailwind.config.ts:2`; `postcss.config.mjs` |
+| R3-04 | Info | Docs | `--primary` is documented as hex `#E4447C` (README ×2, PAD §5.2) but `hsl(340 75% 58%)` renders as `rgb(228 68 121)` = **`#E44479`** on both the reference and the clone (parity invariant holds — both sites paint the identical color; the docs transcription is off by 3 in the blue channel). | computed styles on both sites; manual HSL→RGB conversion |
+
+**Not defects (validated, leave alone):** section `aria-label`s absent on features/final-cta — the reference has **no** section labels at all; the clone's labels on hero/events/testimonials are a documented a11y enhancement · landing hash-anchor count 7 vs reference 0 — the single-route contract requires hash anchors (documented deviation) · post-auth redirect lands on `$BASE/#/` (not bare `/`) — correct home route via the hash router · auth input radius `calc(infinity*1px)` vs `9999px` — documented known-equivalent serialization · the reference ignores `?mode=signup` entirely (Log in always default) — the clone's signup preselection is the documented deliberate enhancement (session-2 finding).
+
+## 6. Round 3 Remediation ToDo (execution order)
+
+### Phase A — RED baseline (TDD) — done
+- [x] A1. E2E regression checks written and confirmed RED against the current code: T13.2 (auth mode sync), T14.1 (404 display face). Suite is 49/51 with exactly the two real findings failing.
+- [x] A2. Gate chain baseline recorded: lint 0 · tsc 0 · 21/21 unit · build OK + 1 warning (R3-03).
+- *TDD seam note:* per the repo's accepted testing strategy (SECURITY_AUDIT TST-01 — component-level tests are deliberately absent; browser E2E verifies UI behavior), the red → green loop for these two UI-behavior fixes runs at the E2E seam. The `parseHash` unit suite stays green throughout, guarding the routing contract (the R3-02 fix intentionally touches no routing logic).
+
+### Phase B — Fix R3-02 (auth mode sync) — `src/app/page.tsx`
+- [x] B1. Keyed the `AuthView` by the route-driven mode: `<AuthView key={route.mode} initialMode={route.mode} onNavigate={navigate} />` (plus an explanatory shell doc-comment). A mode change via `hashchange` now remounts the view with the correct tab; tab clicks inside the view still change only local state.
+- [x] B2. GREEN: E2E T13.1–T13.3 all pass; history assertions (T9.x) unchanged.
+- [x] B3. Unit suite still 21/21 (no router-contract change).
+
+### Phase C — Fix R3-01 (404 display face) — `src/components/shared/not-found-view.tsx`
+- [x] C1. Added `font-display` to the 404 `h1` (doc-comment updated to the display-face fact).
+- [x] C2. GREEN: E2E T14.1 passes; T14.2 (36px/700) unchanged; parity re-run — 404 h1 font family now Bricolage on both sites.
+- [x] C3. Visual regression sweep clean: muted band, message, home link computed styles unchanged.
+
+### Phase D — Fix R3-03 (stale Tailwind config) — `tailwind.config.ts`
+- [x] D1. Reduced the file to content-paths-only (dropped the `tailwindcss-animate` import, `darkMode`, the v3 theme block, `plugins`); content globs corrected to the real `src/**` locations; doc-comment states the file is tooling-only.
+- [x] D2. Clean rebuild after `rm -rf .next`: **zero warnings**; routes unchanged (`/`, `/_not-found`, `/api`).
+- [x] D3. Computed-style spot-checks unchanged (E2E T10.x + parity script re-run on the restarted dev server).
+
+### Phase E — Documentation re-baseline (fixes R3-04 + the R3-01/R3-02 doc claims)
+- [x] E1. README: `#E4447C` → `#E44479` (both occurrences).
+- [x] E2. PAD bumped to **v1.1.3**: revision block; §5.2 hex correction; ADR-002 consequence now documents the mode-keyed remount; §3.2 404 description; §7.3d verification ledger; §11 line counts.
+- [x] E3. CLAUDE.md: golden-path E2E description updated to the 51-check suite with the two new regression invariants.
+- [x] E4. AGENTS.md: architecture fact #1 notes the `AuthView` key; the Tailwind convention entry now states the config is tooling-only; the font convention entry documents the bare-heading parity gotcha.
+- [x] E5. This Round 3 section closed with evidence (this update).
+
+### Phase F — Full re-verification gate
+- [x] F1. `bun run lint` 0 problems; `tsc --noEmit` 0 errors; `vitest run` 21/21.
+- [x] F2. Production build: succeeds with **zero warnings**; dev server healthy (200 on :3000).
+- [x] F3. E2E suite: **51/51 PASS, twice consecutively** (deterministic).
+- [x] F4. Parity script: all audited invariants match the reference, including the 404 display face.
+
+**STATUS: COMPLETE (2026-09-15).** Closing evidence in PAD §7.3d.
+
+## 7. Round 3 Risks & Safety
+
+| Risk | Mitigation |
+|------|------------|
+| AuthView remount resets in-progress form state on mode-keyed hashchange | Acceptable and correct: it is a navigation event; the post-auth redirect and tab clicks are unaffected (tab clicks change local state only, no remount) |
+| `font-display` on 404 h1 changes layout metrics | Weight/size pinned by E2E T14.2; the display face is same-size (36px) — verified by parity re-run |
+| Trimming tailwind.config.ts breaks IDE tooling or the build | The config is tooling-only (not in the PostCSS pipeline); build + computed-style checks are the guard; content paths preserved |
+
+## 8. Round 3 Out of scope (deferred)
+
+- Two-way URL sync for tab clicks (updating the hash when the user clicks tabs) — enhancement, not a defect; the reference's tabs never touch the URL either.
+- CI pipeline (PAD §8.4 recommendation stands).
+
+---
+
+# Remediation Plan — Round 4 (Session 4 Deep Re-Audit)
+
+**Date:** 2026-09-15
+**Trigger:** Tiered code review + security audit (Session-4 deep re-audit — `docs/SECURITY_AUDIT.md` §8)
+**Baseline:** lint 0 · tsc 0 · Vitest 21/21 · build zero warnings · E2E 51/51 · supply chain 0 vulnerabilities
+**Methodology:** my-pi-agent skills — `code-review-and-audit` (deep mode + native CLI fallback), `tdd` (red → green; seams discipline), `verification-and-review-protocol` (Iron Law), `plan-writing`.
+
+## 9. Round 4 Findings (from SECURITY_AUDIT §8.2)
+
+| ID | Sev | Area | Finding |
+|----|-----|------|---------|
+| AUD-05 | S3 | Error handling | `onReset` / `onGoogle` in `auth-view.tsx` lack failure handling — an adapter rejection becomes an unhandled promise rejection (no toast). Violates the documented async-state + AuthError-mapping contracts; dormant with the demo adapter, user-facing at the ADR-004 real-backend swap point |
+| AUD-01 | S4 | Docs | PAD §7.1 + README still reference the retired 38-check E2E suite |
+| AUD-02 | S4 | Docs | Stale stack versions in README + PAD §1.2 vs the lockfile (framer-motion, react-hook-form, zod, @hookform/resolvers) |
+| AUD-03 | S4 | Docs | PAD §3.3 Pattern 2 snippet omits the v1.1.3 `key={route.mode}` |
+
+## 10. Round 4 ToDo (execution order)
+
+### Phase A — TDD seam analysis (done, documented)
+- [x] A1. **Seam decision for AUD-05:** the failure paths are unreachable in the shipped product — the demo adapter's `requestPasswordReset`/`signInWithProvider` always resolve (anti-enumeration/demo determinism), and zod pre-validates the signup policy client-side. Component-test infrastructure is deliberately absent (SECURITY_AUDIT TST-01, accepted). Therefore the red → green loop for AUD-05 runs against the documented contract (CLAUDE.md "network → retryable toast"; the `AuthError` union), implemented as the same inline pattern `onLogin`/`onSignUp` already establish, with regression verification via the full gate chain + E2E 51/51 (happy paths must not change). The coverage limitation (failure paths untestable without either a rejected demo contract or component-test infra) is registered as an explicit residual in the audit doc — not silently claimed as covered.
+
+### Phase B — Fix AUD-05 — `src/components/auth/auth-view.tsx`
+- [x] B1. `onReset`: adapter call wrapped in try/catch — `network` → retryable "Connection problem" toast; other failures → reset-failure toast; success path unchanged.
+- [x] B2. `onGoogle`: catch block added before the existing finally — same typed mapping; success path unchanged.
+- [x] B3. Gates green: lint 0 · tsc 0 · 21/21; E2E 51/51 (reset T5b.1–3 + Google T5c.1–2 all pass).
+
+### Phase C — Docs alignment (AUD-01/02/03)
+- [x] C1. PAD §7.1 → 51 checks + current script name; §1.2 versions re-aligned to lockfile resolutions (marked "(resolved)"); §3.3 Pattern 2 snippet includes `key={route.mode}`; §11 auth-view line count updated; companion-docs line references rounds 1–4.
+- [x] C2. README: "51-check"; stack table versions corrected (framer-motion 12.43, RHF 7.88, zod 4.6).
+- [x] C3. PAD bumped to **v1.1.4** (revision block + §7.3e ledger).
+
+### Phase D — Verification gate
+- [x] D1. lint 0 · tsc 0 · Vitest 21/21 · production build zero warnings (re-verified post-fix).
+- [x] D2. E2E 51/51; reset + Google flows green.
+- [x] D3. SECURITY_AUDIT §8 closed with the Round 4 execution note.
+
+**STATUS: COMPLETE (2026-09-15).** Closing evidence in PAD §7.3e.
+
+## 11. Round 4 Risks & Safety
+
+| Risk | Mitigation |
+|------|------------|
+| New catch blocks swallow errors silently | Both catches surface user-facing toasts; no empty catch; typed branch mirrors the documented AuthError contract |
+| Toast copy drift vs reference | Failure copy is clone-side UX (the reference has no reachable failure states); wording mirrors the existing onLogin/onSignUp copy family |
+| Docs version edits go stale again | §1.2 now says "resolved at lockfile" to signal they track `bun.lock` |
+
+## 12. Round 4 Out of scope (deferred)
+
+- Component-test infrastructure (jsdom + @testing-library) for behavioral view tests — would revisit the accepted TST-01 decision; flagged as a future option if the auth seam grows.
+- Real backend adapter (ADR-004 swap point stands).
